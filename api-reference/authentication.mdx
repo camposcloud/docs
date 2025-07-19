@@ -1,0 +1,24 @@
+---
+title: 'Authentication'
+description: 'In this guide we will teach you how to get your API Token so you can authenticate to our API.'
+icon: 'key'
+---
+
+First you need to enter the [Dashboard](https://camposcloud.com/dashboard/applications), click on "Your Account" and look for the menu called "Developer", After that click on **"Generate New API Key"**
+
+<Note>
+  Dont forget to save your API Key, you will not be able to see it again. If you lose it, you will need to generate a new one.
+</Note>
+
+<Danger type="alert">
+  Dont share your API Key with anyone, it is a secret key that allows access to your account.
+</Danger>
+
+## Using the API Key
+To use the API Key, you need to add it to the `Authorization` header of your requests. The format is as follows:
+
+```json
+{
+  "Authorization": "Bearer YOUR_API_KEY_HERE"
+}
+```

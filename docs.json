@@ -1,11 +1,11 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "CamposCloud",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#2464ec",
+    "light": "#2464ec",
+    "dark": "#2464ec"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -20,30 +20,6 @@
               "quickstart",
               "development"
             ]
-          },
-          {
-            "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
           }
         ]
       },
@@ -53,16 +29,27 @@
           {
             "group": "API documentation",
             "pages": [
-              "api-reference/introduction"
+              "api-reference/authentication",
+              "api-reference/api-limits"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "API Endpoint",
+            "tag": "endpoint",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              {
+                "group": "User",
+                "pages": [
+                  "api-reference/endpoint/v1/users/@me"
+                ]
+              },
+              {
+                "group": "Applications",
+                "pages": [
+                  "api-reference/endpoint/v1/applications/appId",
+                  "api-reference/endpoint/v1/applications/create"
+                ]
+              }
             ]
           }
         ]
@@ -71,19 +58,19 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
+          "anchor": "Website",
+          "href": "https://camposcloud.com",
           "icon": "book-open-cover"
         },
         {
-          "anchor": "Community",
-          "href": "https://mintlify.com/community",
-          "icon": "slack"
+          "anchor": "Discord Community",
+          "href": "https://dicord.gg/camposcloud",
+          "icon": "discord"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "Status page",
+          "href": "https://status.camposcloud.com",
+          "icon": "heart-pulse"
         }
       ]
     }
@@ -96,13 +83,13 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "https://discord.gg/camposcloud"
       }
     ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "href": "https://camposcloud.com/dashboard/applications"
     }
   },
   "footer": {

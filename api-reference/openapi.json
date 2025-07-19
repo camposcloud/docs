@@ -1,8 +1,8 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "OpenAPI Plant Store",
-    "description": "A sample API that uses a plant store as an example to demonstrate features in the OpenAPI specification",
+    "title": "CamposCloud API Documentation",
+    "description": "This documentation provides an overview of the CamposCloud API, including authentication, endpoints, and data structures. It is designed to help developers integrate with the CamposCloud platform effectively.",
     "license": {
       "name": "MIT"
     },
@@ -10,7 +10,7 @@
   },
   "servers": [
     {
-      "url": "http://sandbox.mintlify.com"
+      "url": "https://api.camposcloud.com"
     }
   ],
   "security": [
@@ -128,6 +128,109 @@
           }
         }
       }
+    },
+    "/v1/users/@me": {
+      "get": {
+        "description": "Returns the user information for the authenticated user",
+        "responses": {
+          "200": {
+            "description": "User response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/applications/{appId}": {
+      "get": {
+        "description": "Returns information about a specific application by its ID",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the application to retrieve",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Application response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/applications/create": {
+      "post": {
+        "description": "Creates a new application",
+        "requestBody": {
+          "description": "Application data to create",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApplication"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Application created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Application"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "webhooks": {
@@ -154,41 +257,276 @@
   },
   "components": {
     "schemas": {
-      "Plant": {
+      "User": {
         "required": [
-          "name"
+          "_id",
+          "name",
+          "isEmail2FAEnabled",
+          "hasClaimedFreePlan"
         ],
         "type": "object",
         "properties": {
-          "name": {
-            "description": "The name of the plant",
-            "type": "string"
+          "_id": {
+            "description": "The unique identifier of the user",
+            "type": "string",
+            "example": "60c72b2f9b1e8d001c8e4f3a"
           },
-          "tag": {
-            "description": "Tag to specify the type",
-            "type": "string"
+          "name": {
+            "description": "The user name",
+            "type": "string",
+            "example": "John Doe"
+          },
+          "isEmail2FAEnabled": {
+            "description": "Indicates if the user has enabled email two-factor authentication",
+            "type": "boolean",
+            "example": true
+          },
+          "hasClaimedFreePlan": {
+            "description": "Indicates if the user has claimed the free plan",
+            "type": "boolean",
+            "example": false
+          },
+          "activeSessions": {
+            "description": "List of active sessions for the user",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "example": [{
+              "id": "60c72b2f9b1e8d001c8e4f3b",
+              "device": "Desktop",
+              "ip": "192.168.0.101",
+              "browser": "Chrome",
+              "lastActive": "2025-07-18T23:49:19.701Z"
+            }]
           }
         }
       },
-      "NewPlant": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/Plant"
+      "Application": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "The unique identifier of the application",
+            "example": "60c72b2f9b1e8d001c8e4f3a"
           },
-          {
-            "required": [
-              "id"
-            ],
-            "type": "object",
+          "currentResourceMetrics": {
+            "type": ["object", "null"],
+            "description": "Current resource metrics of the application",
             "properties": {
-              "id": {
-                "description": "Identification number of the plant",
+              "timestamp": {
+                "type": "string",
+                "format": "date-time",
+                "example": "2025-07-19T17:57:05.069Z",
+                "description": "The timestamp when the metrics were recorded"
+              },
+              "online": {
+                "type": "boolean",
+                "example": true,
+                "description": "Indicates if the application is currently online"
+              },
+              "uptime": {
                 "type": "integer",
-                "format": "int64"
+                "format": "int64",
+                "example": 35980,
+                "description": "The uptime of the application in seconds"
+              },
+              "cpuUsagePercent": {
+                "type": "number",
+                "format": "float",
+                "example": 0.0,
+                "description": "The CPU usage of the application as a percentage (0-100)"
+              },
+              "memoryUsageBytes": {
+                "type": "integer",
+                "format": "int64",
+                "example": 43671552,
+                "description": "The memory usage of the application in bytes"
+              },
+              "memoryLimitBytes": {
+                "type": "integer",
+                "format": "int64",
+                "example": 268435456,
+                "description": "The memory limit of the application in bytes"
+              },
+              "networkRxBytes": {
+                "type": "integer",
+                "format": "int64",
+                "example": 228961,
+                "description": "The amount of data received by the application over the network in bytes"
+              },
+              "networkTxBytes": {
+                "type": "integer",
+                "format": "int64",
+                "example": 228190,
+                "description": "The amount of data sent by the application over the network in bytes"
               }
             }
+          },
+          "containerId": {
+            "type": "string",
+            "description": "The unique identifier of the container",
+            "example": "da886ad3-88e9-4012-b893-130e87f6b747"
+          },
+          "teamId": {
+            "type": ["string", "null"],
+            "description": "The unique identifier of the team associated with the application",
+            "example": "60c72b2f9b1e8d001c8e4f3b"
+          },
+          "restartRequired": {
+            "type": "boolean",
+            "description": "Indicates if a restart is required for the application",
+            "example": false
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the application",
+            "example": "My Application"
+          },
+          "userId": {
+            "type": "string",
+            "description": "The unique identifier of the user who owns the application",
+            "example": "60c72b2f9b1e8d001c8e4f3a"
+          },
+          "allocatedMemoryMB": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The amount of memory allocated to the application in MB",
+            "example": 256
+          },
+          "allocatedVCpu": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The number of virtual CPUs allocated to the application",
+            "example": 8
+          },
+          "workerNodeId": {
+            "type": "object",
+            "properties": {
+              "_id": {
+                "type": "string",
+                "description": "The unique identifier of the worker node",
+                "example": "60c72b2f9b1e8d001c8e4f3c"
+              },
+              "nodeName": {
+                "type": "string",
+                "description": "The name of the worker node",
+                "example": "ODIN"
+              }
+            }
+          },
+          "containerImage": {
+            "type": "string",
+            "description": "The Docker image used for the application",
+            "example": "kevencampos/camposcloud-python"
+          },
+          "exposedViaWeb": {
+            "type": "boolean",
+            "description": "Indicates if the application is exposed via the web",
+            "example": false
+          },
+          "startupCommand": {
+            "type": "string",
+            "description": "The command used to start the application",
+            "example": "python -u index.py"
+          },
+          "installDependenciesCmd": {
+            "type": "string",
+            "description": "The command used to install dependencies for the application",
+            "example": "pip install -r requirements.txt"
+          },
+          "runtimeEnvironment": {
+            "type": "string",
+            "description": "The runtime environment of the application",
+            "example": "python"
+          },
+          "autoRestartEnabled": {
+            "type": "boolean",
+            "description": "Indicates if auto-restart is enabled for the application",
+            "example": false
+          },
+          "status": {
+            "type": "string",
+            "description": "The current status of the application",
+            "example": "active"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The date and time when the application was created",
+            "example": "2025-07-19T00:02:54.455Z"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The date and time when the application was last updated",
+            "example": "2025-07-19T17:57:05.069Z"
           }
-        ]
+        }
+      },
+      "CreateApplication": {
+        "required": [
+          "file",
+          "appName",
+          "mainFile",
+          "memoryMB",
+          "runtimeEnvironment"
+        ],
+        "type": "object",
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "Application file to upload (.zip only!!)"
+          },
+          "appName": {
+            "type": "string",
+            "description": "The name of the application",
+            "example": "My Application"
+          },
+          "mainFile": {
+            "type": "string",
+            "description": "The main file of the application",
+            "example": "index.py"
+          },
+          "exposedViaWeb": {
+            "type": "boolean",
+            "description": "Indicates if the application is exposed via the web",
+            "default": false,
+            "example": false
+          },
+          "memoryMB": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The amount of memory allocated to the application in MB",
+            "example": 256
+          },
+          "autoRestartEnabled": {
+            "type": "boolean",
+            "description": "Indicates if auto-restart is enabled for the application",
+            "default": false,
+            "example": true
+          },
+          "startupCommand": {
+            "type": "string",
+            "description": "The command used to start the application",
+            "example": ""
+          },
+          "runtimeEnvironment": {
+            "type": "string",
+            "description": "The runtime environment of the application",
+            "example": "python",
+            "enum": [
+              "python",
+              "nodejs"
+            ]
+          },
+          "teamId": {
+            "type": "string",
+            "description": "The unique identifier of the team associated with the application, if you want to create the application in a team",
+            "example": "60c72b2f9b1e8d001c8e4f3b"
+          }
+        }
       },
       "Error": {
         "required": [
