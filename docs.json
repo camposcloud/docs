@@ -16,9 +16,7 @@
           {
             "group": "Getting started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "index"
             ]
           }
         ]
@@ -46,10 +44,47 @@
               {
                 "group": "Applications",
                 "pages": [
+                  "api-reference/endpoint/v1/applications/list",
                   "api-reference/endpoint/v1/applications/appId",
-                  "api-reference/endpoint/v1/applications/create"
+                  "api-reference/endpoint/v1/applications/create",
+                  "api-reference/endpoint/v1/applications/update",
+                  "api-reference/endpoint/v1/applications/start",
+                  "api-reference/endpoint/v1/applications/stop",
+                  "api-reference/endpoint/v1/applications/restart",
+                  "api-reference/endpoint/v1/applications/delete"
+                ]
+              },
+              {
+                "group": "File System",
+                "pages": [
+                  "api-reference/endpoint/v1/filesystem/getFiles",
+                  "api-reference/endpoint/v1/filesystem/deleteFile",
+                  "api-reference/endpoint/v1/filesystem/uploadFile"
                 ]
               }
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDK",
+        "groups": [
+          {
+            "group": "SDK Documentation",
+            "pages": [
+              "sdk/index"
+            ]
+          },
+          {
+            "group": "JavaScript",
+            "pages": [
+              "sdk/javascript/getting-started"
+            ]
+          },
+          {
+            "group": "Python",
+            "pages": [
+              "sdk/python/getting-started"
             ]
           }
         ]

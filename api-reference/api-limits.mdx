@@ -16,10 +16,17 @@ icon: 'shield'
   Illegal use of the API, such as scraping or spamming, will result in your account being suspended.
 </Warning>
 
+<Note>
+  Beyond the global limit, some endpoints may have their own specific limits. You can find these limits in the endpoints documentation.
+</Note> 
+
 ## Using the API Key
 The current API limits global are as follows:
 - **Rate Limit**: 180 requests per minute per account. ( approx. 3 requests per second )
 
-<Note>
-  Beyond the global limit, some endpoints may have their own specific limits. You can find these limits in the endpoints documentation.
-</Note> 
+<Tip>
+  You can check the response headers to monitor your current rate limit status. Look for the following headers:
+</Tip>
+- `X-RateLimit-Limit`: The maximum number of requests allowed during the current rate limit window.
+- `X-RateLimit-Remaining`: The number of requests you have left in the current window.
+- `X-RateLimit-Reset`: The number of seconds until the rate limit count resets.
