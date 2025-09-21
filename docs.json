@@ -59,7 +59,8 @@
                 "pages": [
                   "api-reference/endpoint/v1/filesystem/getFiles",
                   "api-reference/endpoint/v1/filesystem/deleteFile",
-                  "api-reference/endpoint/v1/filesystem/uploadFile"
+                  "api-reference/endpoint/v1/filesystem/uploadFile",
+                  "api-reference/endpoint/v1/filesystem/downloadFile"
                 ]
               }
             ]
@@ -99,7 +100,7 @@
         },
         {
           "anchor": "Discord Community",
-          "href": "https://dicord.gg/camposcloud",
+          "href": "https://discord.gg/camposcloud",
           "icon": "discord"
         },
         {
