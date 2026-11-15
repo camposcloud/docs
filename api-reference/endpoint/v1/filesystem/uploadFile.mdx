@@ -1,9 +1,13 @@
 ---
 title: '/v1/apps/{appId}/upload'
-description: 'This endpoint allows you to upload a file to the specified application.'
+description: 'This endpoint uploads a .zip file and extracts it into the specified application.'
 openapi: 'POST /v1/apps/{appId}/upload'
 ---
 
 <Warning>
-  This endpoint has a rate limit of 1 request every 3 seconds.
+  This endpoint has a rate limit of 1 request every 3 seconds, shared with the delete files endpoint.
 </Warning>
+
+<Note>
+  Only `.zip` files are accepted (max. 100 MB). The zip is **extracted** into `path`; it is not stored as a zip. To upload a single file, put it inside a zip.
+</Note>

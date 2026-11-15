@@ -1,0 +1,21 @@
+---
+title: '/v1/apps/{appId}/files/create'
+description: 'This endpoint creates a directory, or creates or overwrites a text file of an application.'
+openapi: 'POST /v1/apps/{appId}/files/create'
+---
+
+<Warning>
+  This endpoint has a rate limit of 1 request every 3 seconds, shared with the other endpoints that change files (upload, delete, rename, move and create).
+</Warning>
+
+<Warning>
+  An existing file with the same name is overwritten without confirmation.
+</Warning>
+
+<Note>
+  The request body is limited to 100 KB and the content is saved as UTF-8 text. For binary or larger files, send a `.zip` to the upload endpoint.
+</Note>
+
+<Tip>
+  To edit a file: read it with `GET /v1/apps/{appId}/files?path=...`, send the new content to this endpoint, then restart the application so it loads the change.
+</Tip>

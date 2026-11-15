@@ -1,0 +1,13 @@
+---
+title: '/v1/databases/{databaseId}'
+description: 'This endpoint changes the name or the memory of a database.'
+openapi: 'PUT /v1/databases/{databaseId}'
+---
+
+<Warning>
+  This endpoint has a rate limit of 1 request every 3 seconds, shared with the other endpoints that change databases (create, update, update credentials and delete).
+</Warning>
+
+<Note>
+  A memory change is only applied the next time the database is started, stopped or restarted.
+</Note>

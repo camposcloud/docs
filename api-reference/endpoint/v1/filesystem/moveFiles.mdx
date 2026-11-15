@@ -1,0 +1,13 @@
+---
+title: '/v1/apps/{appId}/files/move'
+description: 'This endpoint moves files or directories of an application into another directory.'
+openapi: 'PATCH /v1/apps/{appId}/files/move'
+---
+
+<Warning>
+  This endpoint has a rate limit of 1 request every 3 seconds, shared with the other endpoints that change files (upload, delete, rename, move and create).
+</Warning>
+
+<Note>
+  Items are moved one by one. If one of them fails, the items before it have already been moved.
+</Note>

@@ -1,0 +1,156 @@
+---
+title: 'Application'
+description: 'Reference of the Application class returned by getApplication and createApplication.'
+icon: 'box'
+---
+
+`Application` is a small helper that binds an application to the client, so you do not have to repeat its ID. You get one from [`getApplication`](/sdk/javascript/client#getapplication) or [`createApplication`](/sdk/javascript/client#createapplication).
+
+```typescript
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+
+console.log(app.data.name);
+await app.restart();
+```
+
+The class is also exported by the package (`import { Application } from "@camposcloud/sdk"` in TypeScript), mainly to be used as a type.
+
+## data
+
+```typescript
+readonly data: ApplicationResponseData
+```
+
+The application exactly as the API returned it when the instance was created. See [`ApplicationResponseData`](/sdk/javascript/types#applicationresponsedata).
+
+```typescript
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+
+console.log(app.data._id);
+console.log(app.data.allocatedMemoryMB);
+console.log(app.data.currentResourceMetrics?.online);
+```
+
+<Warning>
+  `data` is a snapshot. It is **not** refreshed by `start()`, `stop()`, `restart()` or `update()`. Use the value returned by those methods, or call `getApplication` again, to read the current state.
+</Warning>
+
+## Methods
+
+Every method calls the matching method of the [client](/sdk/javascript/client) with `appId` set to `data._id`, so the same behaviour, errors and limits apply.
+
+| Method | Calls | Returns |
+| --- | --- | --- |
+| `start()` | [`startApplication`](/sdk/javascript/client#startapplication) | `Promise<ApplicationResponseData>` |
+| `stop()` | [`stopApplication`](/sdk/javascript/client#stopapplication) | `Promise<ApplicationResponseData>` |
+| `restart()` | [`restartApplication`](/sdk/javascript/client#restartapplication) | `Promise<ApplicationResponseData>` |
+| `delete()` | [`deleteApplication`](/sdk/javascript/client#deleteapplication) | `Promise<AxiosResponse>` |
+| `update(data)` | [`updateApplication`](/sdk/javascript/client#updateapplication) | `Promise<ApplicationResponseData>` |
+| `uploadFile({ file, path })` | [`uploadFile`](/sdk/javascript/client#uploadfile) | `Promise<{ message: string } \| AxiosError>` |
+| `downloadFile({ path })` | [`downloadFile`](/sdk/javascript/client#downloadfile) | `Promise<Buffer>` |
+
+### start
+
+```typescript
+start(): Promise<ApplicationResponseData>
+```
+
+```typescript
+const state = await app.start();
+console.log(state.currentResourceMetrics.online);
+```
+
+Throws when the application is already running (the API answers with `500`).
+
+### stop
+
+```typescript
+stop(): Promise<ApplicationResponseData>
+```
+
+```typescript
+await app.stop();
+```
+
+Throws when the application is already stopped (the API answers with `500`).
+
+### restart
+
+```typescript
+restart(): Promise<ApplicationResponseData>
+```
+
+```typescript
+await app.restart();
+```
+
+Throws when the application is not running and has no pending settings (the API answers with `500`).
+
+### delete
+
+```typescript
+delete(): Promise<AxiosResponse>
+```
+
+```typescript
+const response = await app.delete();
+console.log(response.data.message);
+```
+
+Deletes the application. This cannot be undone, and the instance must not be used afterwards.
+
+### update
+
+```typescript
+update(data: Omit<UpdateApplicationDataParams, "appId">): Promise<ApplicationResponseData>
+```
+
+Takes the same fields as [`updateApplication`](/sdk/javascript/client#updateapplication), without `appId`. `appName`, `memoryMB` and `runtimeEnvironment` are always required.
+
+```typescript
+const updated = await app.update({
+    appName: app.data.name,
+    memoryMB: 512,
+    runtimeEnvironment: "nodejs",
+    startupCommand: app.data.startupCommand,
+});
+
+if (updated.restartRequired) {
+    await app.restart();
+}
+```
+
+### uploadFile
+
+```typescript
+uploadFile({ file, path }: { file: Buffer; path?: string }): Promise<{ message: string } | AxiosError>
+```
+
+```typescript
+import fs from "fs";
+
+const zip = await fs.promises.readFile("./update.zip");
+await app.uploadFile({ file: zip, path: "/" });
+```
+
+<Warning>
+  The method takes **one object**, not two positional arguments: `app.uploadFile(zip, "/")` does not work. `file` must be a zip, and `path` must always be passed, otherwise the zip is extracted into a folder called `undefined`. See [`uploadFile`](/sdk/javascript/client#uploadfile).
+</Warning>
+
+### downloadFile
+
+```typescript
+downloadFile({ path }?: { path?: string }): Promise<Buffer>
+```
+
+```typescript
+import fs from "fs";
+
+const everything = await app.downloadFile();
+await fs.promises.writeFile("./backup.zip", everything);
+
+const onlySrc = await app.downloadFile({ path: "/src" });
+await fs.promises.writeFile("./src.zip", onlySrc);
+```
+
+The argument is optional. The result is always a zip archive.

@@ -1,3 +1,122 @@
 ---
-description: 'Coming soon: This section will provide detailed information on how to get started with the CamposCloud SDK, including installation instructions and usage examples.'
+title: 'Getting started'
+description: 'Install the CamposCloud JavaScript SDK and make your first request.'
+icon: 'rocket'
 ---
+
+The JavaScript SDK (`@camposcloud/sdk`) is a small wrapper around the [CamposCloud API](/api-reference/introduction) for Node.js. It is written in TypeScript and ships with its type definitions.
+
+## Installation
+
+<CodeGroup>
+```bash npm
+npm install @camposcloud/sdk
+```
+
+```bash yarn
+yarn add @camposcloud/sdk
+```
+
+```bash pnpm
+pnpm add @camposcloud/sdk
+```
+</CodeGroup>
+
+<Note>
+  The SDK is made for Node.js: files are sent and received as Node.js `Buffer` objects.
+</Note>
+
+## Get your API token
+
+The SDK authenticates with the same API Key used by the API. See [Authentication](/api-reference/authentication) to learn how to generate one.
+
+<Danger type="alert">
+  Dont put your API Key directly in your code. Load it from an environment variable.
+</Danger>
+
+## Create the client
+
+The package is published as a CommonJS module. How you import it depends on your project:
+
+<CodeGroup>
+```typescript TypeScript
+import CamposCloudSDK from "@camposcloud/sdk";
+
+const api = new CamposCloudSDK({ apiToken: process.env.CAMPOSCLOUD_TOKEN! });
+```
+
+```javascript CommonJS
+const { CamposCloudSDK } = require("@camposcloud/sdk");
+
+const api = new CamposCloudSDK({ apiToken: process.env.CAMPOSCLOUD_TOKEN });
+```
+
+```javascript ES Modules (.mjs)
+import sdk from "@camposcloud/sdk";
+const { CamposCloudSDK } = sdk;
+
+const api = new CamposCloudSDK({ apiToken: process.env.CAMPOSCLOUD_TOKEN });
+```
+</CodeGroup>
+
+<Warning>
+  In a native Node.js ES Module (a `.mjs` file or a project with `"type": "module"`), the default import is the whole module object, not the class, so `new CamposCloudSDK(...)` on it fails with `is not a constructor`. Named imports (`import { CamposCloudSDK } from ...`) are not available either. Use the destructuring shown in the "ES Modules" tab. The TypeScript form works when your project compiles to CommonJS or uses a bundler.
+</Warning>
+
+The constructor throws `Error("API Token is required to initialize CamposCloudSDK.")` when `apiToken` is empty. The token is not validated until the first request.
+
+## Your first request
+
+```typescript
+import CamposCloudSDK from "@camposcloud/sdk";
+
+const api = new CamposCloudSDK({ apiToken: process.env.CAMPOSCLOUD_TOKEN! });
+
+const main = async () => {
+    try {
+        const me = await api.getMe();
+        console.log(`Hello ${me.name}`);
+
+        const { applications } = await api.getApplications();
+        for (const app of applications) {
+            console.log(app._id, app.name, app.currentResourceMetrics?.online ? "online" : "offline");
+        }
+    } catch (error) {
+        console.error(error);
+    }
+};
+
+main();
+```
+
+## What the SDK covers
+
+| Area | SDK | API |
+| --- | --- | --- |
+| Account | [`getMe`](/sdk/javascript/client#getme) | `GET /v1/users/@me` |
+| Applications | [`getApplications`](/sdk/javascript/client#getapplications), [`getApplication`](/sdk/javascript/client#getapplication), [`createApplication`](/sdk/javascript/client#createapplication), [`updateApplication`](/sdk/javascript/client#updateapplication), [`startApplication`](/sdk/javascript/client#startapplication), [`stopApplication`](/sdk/javascript/client#stopapplication), [`restartApplication`](/sdk/javascript/client#restartapplication), [`deleteApplication`](/sdk/javascript/client#deleteapplication) | `/v1/apps...` |
+| Files | [`uploadFile`](/sdk/javascript/client#uploadfile), [`downloadFile`](/sdk/javascript/client#downloadfile) | `POST /v1/apps/{appId}/upload`, `GET /v1/apps/{appId}/download` |
+| Teams | [`getTeams`](/sdk/javascript/client#getteams), [`getTeam`](/sdk/javascript/client#getteam) | `GET /v1/teams`, `GET /v1/teams/{teamId}` |
+
+The following parts of the API have **no** method in the SDK. Call the API directly if you need them:
+
+- Listing, reading and deleting files (`GET` and `DELETE /v1/apps/{appId}/files`).
+- Creating, renaming and deleting teams, and managing invites and members.
+- Pagination, team and name filters of the application list.
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="Client" icon="plug" href="/sdk/javascript/client">
+    Every method of the `CamposCloudSDK` class.
+  </Card>
+  <Card title="Application" icon="box" href="/sdk/javascript/application">
+    The `Application` class returned by `getApplication` and `createApplication`.
+  </Card>
+  <Card title="Types" icon="brackets-curly" href="/sdk/javascript/types">
+    The TypeScript types exported by the package.
+  </Card>
+  <Card title="Errors and pitfalls" icon="triangle-exclamation" href="/sdk/javascript/errors-and-pitfalls">
+    How errors are thrown and what to watch out for.
+  </Card>
+</Columns>

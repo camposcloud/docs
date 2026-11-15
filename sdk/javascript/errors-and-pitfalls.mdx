@@ -1,0 +1,130 @@
+---
+title: 'Errors and pitfalls'
+description: 'How the CamposCloud JavaScript SDK reports errors, and the behaviours you should know before using it.'
+icon: 'triangle-exclamation'
+---
+
+## Error handling
+
+The SDK does not have its own error classes and never retries a request. There are two kinds of errors, and both are thrown (the returned promise rejects):
+
+### Validation errors
+
+Before sending a request, each method checks some of its arguments and throws a plain `Error` when they are invalid. No request is made in this case.
+
+| Message | Thrown by |
+| --- | --- |
+| `API Token is required to initialize CamposCloudSDK.` | The constructor |
+| `Application ID (appId) must be a valid string.` | Every method that takes `appId` |
+| `Team ID (teamId) must be a valid string.` | `getTeam` |
+| `File is required to create an application.` | `createApplication` |
+| `Application name (appName) is required.` | `createApplication`, `updateApplication` |
+| `Main file (mainFile) is required.` | `createApplication` |
+| `Memory size (memoryMB) must be a valid number.` | `createApplication`, `updateApplication` |
+| `Runtime environment (runtimeEnvironment) is required.` | `createApplication`, `updateApplication` |
+| `Environment variable keys and values must be strings.` | `createApplication`, `updateApplication` |
+| `File must be a valid Buffer.` | `uploadFile` |
+| `File path must be a valid string.` | `uploadFile` |
+| `File path (path) must be a valid string.` | `downloadFile` |
+
+### API errors
+
+Requests are made with [Axios](https://axios-http.com). When the API answers with an error status (or cannot be reached), the Axios error is thrown as is:
+
+- `error.response.status` is the HTTP status.
+- `error.response.data.error` is the message returned by the API.
+- `error.response` is `undefined` when there was no response at all (network error).
+
+```typescript
+try {
+    const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+    await app.start();
+} catch (error: any) {
+    if (error.response) {
+        // The API answered with an error status
+        console.error(error.response.status, error.response.data?.error);
+
+        if (error.response.status === 429) {
+            const seconds = Number(error.response.headers["retry-after"] ?? 1);
+            console.error(`Rate limited, retry in ${seconds}s`);
+        }
+    } else {
+        // Invalid argument (plain Error) or network failure
+        console.error(error.message);
+    }
+}
+```
+
+See the [API introduction](/api-reference/introduction#errors) for the meaning of each status.
+
+<Note>
+  `downloadFile` asks Axios for binary data, so when it fails `error.response.data` is a `Buffer` containing the JSON of the error. Use `JSON.parse(error.response.data.toString())` to read the message.
+</Note>
+
+## Pitfalls
+
+<AccordionGroup>
+  <Accordion title="getApplications only returns the first 10 personal applications">
+    `getApplications()` takes no parameters and calls `GET /v1/apps` without a query string. The API then returns the first page (10 applications) of your **personal** applications only. Applications of teams and the following pages cannot be requested through the SDK. Check `pagination.hasNextPage` and call the API directly when you need more.
+  </Accordion>
+
+  <Accordion title="uploadFile without path extracts into a folder named undefined">
+    The SDK builds the URL as `/apps/{appId}/upload?path=${path}`. When `path` is omitted, the text `undefined` is sent and the API extracts the zip into an `undefined` folder. Always pass `path` (`"/"` for the root).
+  </Accordion>
+
+  <Accordion title="uploadFile only accepts zip files, and they are extracted">
+    The API rejects anything that is not a zip, and the SDK always names the upload `file.zip`. A zip is extracted into `path`, overwriting files with the same name. To send a single file, zip it first.
+  </Accordion>
+
+  <Accordion title="downloadFile always returns a zip">
+    Even for a single file, the `Buffer` returned by `downloadFile` is a zip archive that contains it.
+  </Accordion>
+
+  <Accordion title="Paths are not URL encoded">
+    `uploadFile` and `downloadFile` insert `path` in the URL without encoding it. Paths with spaces or with `&`, `#`, `?` or `%` may be misread. Encode them yourself with `encodeURIComponent`.
+  </Accordion>
+
+  <Accordion title="Application.uploadFile takes an object">
+    The signature is `app.uploadFile({ file, path })`. Passing two positional arguments (`app.uploadFile(file, "/path")`) fails with `File must be a valid Buffer.`, because the SDK looks for the `file` and `path` properties on the first argument.
+  </Accordion>
+
+  <Accordion title="Application.data is never refreshed">
+    The `data` of an `Application` instance is the response of the request that created the instance. Calling `start()`, `stop()`, `restart()` or `update()` does not change it.
+  </Accordion>
+
+  <Accordion title="start, stop and restart throw when there is nothing to do">
+    The API answers with `500` when you start an application that is already running, stop one that is already stopped, or restart one that is not running. Check `currentResourceMetrics.online` first, or catch the error.
+  </Accordion>
+
+  <Accordion title="exposedViaWeb cannot be enabled through the SDK">
+    When `exposedViaWeb` is `true` the API requires `port` (and `assignedSubdomain` on creation). The SDK has no parameter for them, so `createApplication` and `updateApplication` fail with `400` in that case. Use the API directly to expose an application to the web.
+  </Accordion>
+
+  <Accordion title="The bun runtime is not in the types">
+    The API accepts `"nodejs"`, `"bun"` and `"python"`, but `runtimeEnvironment` is typed as `"nodejs" | "python"`. The SDK does not check the value at runtime, so in TypeScript you can pass `"bun" as any`.
+  </Accordion>
+
+  <Accordion title="Environment variables: empty values and empty arrays">
+    A variable with an empty `value` makes the API answer with `500`. In `updateApplication`, omitting `environmentVariables` keeps the current variables, while passing `[]` removes all of them.
+  </Accordion>
+
+  <Accordion title="updateApplication always needs appName, memoryMB and runtimeEnvironment">
+    The SDK throws when one of them is missing, even if you only want to change another setting. Read the current values from `Application.data` (`name`, `allocatedMemoryMB`, `runtimeEnvironment`) and send them back. `teamId` is accepted by the type but ignored.
+  </Accordion>
+
+  <Accordion title="deleteApplication returns the Axios response">
+    Unlike the other methods, `deleteApplication` (and `Application.delete`) resolves with the complete Axios response. The body is in `.data`.
+  </Accordion>
+
+  <Accordion title="Rate limits are not handled">
+    The SDK does not wait nor retry. Creating, updating and uploading are limited to 1 request every 3 seconds each, downloads to 20 per minute, and everything to 180 requests per minute. See [Limits](/api-reference/api-limits).
+  </Accordion>
+
+  <Accordion title="Default import in native ES Modules">
+    The package is CommonJS. In a `.mjs` file or a `"type": "module"` project, `import CamposCloudSDK from "@camposcloud/sdk"` gives you the module object instead of the class. See [Getting started](/sdk/javascript/getting-started#create-the-client).
+  </Accordion>
+
+  <Accordion title="Types are narrower than the responses">
+    Responses are returned without any validation, and the exported types do not describe every field. See [Types](/sdk/javascript/types).
+  </Accordion>
+</AccordionGroup>

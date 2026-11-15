@@ -7,3 +7,15 @@ openapi: 'POST /v1/apps/create'
 <Warning>
   This endpoint has a rate limit of 1 request every 3 seconds.
 </Warning>
+
+<Note>
+  The request must be sent as `multipart/form-data`. The `file` must be a `.zip` (max. 100 MB) and `environmentVariables` must be sent as a JSON encoded string.
+</Note>
+
+<Note>
+  Either `mainFile` or `startupCommand` is required. When `exposedViaWeb` is `true`, `port` and `assignedSubdomain` are required too. Fields that are not listed below are rejected with `400`.
+</Note>
+
+<Warning>
+  Environment variables with an empty `value` make the request fail with `500`.
+</Warning>

@@ -1,9 +1,13 @@
 ---
 title: '/v1/apps/{appId}/files'
-description: 'This endpoint deletes a file or directory at the specified path within an application.'
+description: 'This endpoint deletes files or directories at the specified paths within an application.'
 openapi: 'DELETE /v1/apps/{appId}/files'
 ---
 
 <Warning>
-  This endpoint has a rate limit of 1 request every 3 seconds.
+  This endpoint has a rate limit of 1 request every 3 seconds, shared with the upload endpoint.
 </Warning>
+
+<Note>
+  The request succeeds with `200` even when some paths could not be deleted. Always check the `failed` array of the response.
+</Note>

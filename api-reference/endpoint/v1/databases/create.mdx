@@ -1,0 +1,24 @@
+---
+title: '/v1/databases/create'
+description: 'This endpoint creates a MySQL, PostgreSQL, MongoDB or Redis database.'
+openapi: 'POST /v1/databases/create'
+---
+
+<Warning>
+  This endpoint has a rate limit of 1 request every 3 seconds, shared with the other endpoints that change databases (create, update, update credentials and delete).
+</Warning>
+
+<Note>
+  The password of a database is never returned by the API. Store it when you create the database or change its password.
+</Note>
+
+## Connecting
+
+Use `connection.host` and `connection.port` from the response of `GET /v1/databases/{databaseId}` once the status is `active`:
+
+| Type | Connection string |
+| --- | --- |
+| `postgresql` | `postgresql://<username>:<password>@<host>:<port>/<database>` |
+| `mysql` | `mysql://<username>:<password>@<host>:<port>/<database>` |
+| `mongodb` | `mongodb://<username>:<password>@<host>:<port>/?authSource=admin` |
+| `redis` | `redis://default:<password>@<host>:<port>` |

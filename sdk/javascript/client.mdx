@@ -1,0 +1,449 @@
+---
+title: 'Client'
+description: 'Reference of the CamposCloudSDK class: every method, its parameters and what it returns.'
+icon: 'plug'
+---
+
+`CamposCloudSDK` is the entry point of the SDK. Every method is asynchronous and performs exactly one request to `https://api.camposcloud.com/v1/`.
+
+```typescript
+import CamposCloudSDK from "@camposcloud/sdk";
+
+const api = new CamposCloudSDK({ apiToken: process.env.CAMPOSCLOUD_TOKEN! });
+```
+
+## Constructor
+
+```typescript
+new CamposCloudSDK({ apiToken }: { apiToken: string })
+```
+
+<ParamField path="apiToken" type="string" required>
+  Your CamposCloud API Key. See [Authentication](/api-reference/authentication).
+</ParamField>
+
+Throws `Error("API Token is required to initialize CamposCloudSDK.")` when `apiToken` is empty. The base URL is fixed and no request timeout is configured.
+
+<Note>
+  Methods validate some of their arguments before sending the request and throw a plain `Error` when they are invalid. Errors returned by the API are thrown as Axios errors. See [Errors and pitfalls](/sdk/javascript/errors-and-pitfalls).
+</Note>
+
+## Account
+
+### getMe
+
+```typescript
+getMe(): Promise<UserData>
+```
+
+Returns the account that owns the API token (`GET /v1/users/@me`). The SDK unwraps the `user` object of the API response.
+
+```typescript
+const me = await api.getMe();
+console.log(me.name, me.email);
+console.log(me.currentSubscription?.planReference.name);
+```
+
+**Returns:** [`UserData`](/sdk/javascript/types#userdata)
+
+## Applications
+
+### getApplications
+
+```typescript
+getApplications(): Promise<{
+    applications: ApplicationResponseData[];
+    totalUsedRAM: string;
+    pagination: {
+        totalItems: number;
+        totalPages: number;
+        currentPage: number;
+        itemsPerPage: number;
+        hasNextPage: boolean;
+        hasPrevPage: boolean;
+    };
+}>
+```
+
+Returns the first page of your personal applications (`GET /v1/apps`).
+
+```typescript
+const { applications, totalUsedRAM, pagination } = await api.getApplications();
+
+console.log(`${applications.length} of ${pagination.totalItems} applications`);
+console.log(`Memory in use: ${totalUsedRAM} MB`);
+```
+
+<Warning>
+  This method takes no parameters, so it always returns **at most the first 10 personal applications**. It cannot request other pages, change the page size, or list the applications of a team. If `pagination.hasNextPage` is `true`, call [`GET /v1/apps`](/api-reference/endpoint/v1/applications/list) directly with the `page`, `limit` and `team` query parameters to get the rest.
+</Warning>
+
+<Note>
+  `totalUsedRAM` is declared as `string` in the SDK types, but the API returns a number (megabytes).
+</Note>
+
+### getApplication
+
+```typescript
+getApplication({ appId }: { appId: string }): Promise<Application>
+```
+
+Fetches one application (`GET /v1/apps/{appId}`) and wraps it in an [`Application`](/sdk/javascript/application) instance.
+
+<ParamField path="appId" type="string" required>
+  ID of the application.
+</ParamField>
+
+```typescript
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+
+console.log(app.data.name, app.data.status);
+await app.restart();
+```
+
+**Returns:** [`Application`](/sdk/javascript/application). The raw API response is in `app.data`.
+
+**Throws:** `Error("Application ID (appId) must be a valid string.")` when `appId` is empty or not a string.
+
+### createApplication
+
+```typescript
+createApplication(data: CreateApplicationDataParams): Promise<Application>
+```
+
+Creates an application from a zip file (`POST /v1/apps/create`) and returns it as an [`Application`](/sdk/javascript/application) instance.
+
+<ParamField path="file" type="Buffer" required>
+  The application source as a `.zip` file. It is always sent to the API with the file name `file.zip`.
+</ParamField>
+
+<ParamField path="appName" type="string" required>
+  Name of the application (the API requires at least 3 characters).
+</ParamField>
+
+<ParamField path="mainFile" type="string" required>
+  Main file of the application, for example `index.js`.
+</ParamField>
+
+<ParamField path="memoryMB" type="number" required>
+  Memory to allocate, in MB.
+</ParamField>
+
+<ParamField path="runtimeEnvironment" type='"nodejs" | "python"' required>
+  Runtime of the application. The API also accepts `"bun"`, but the SDK type does not include it (see [pitfalls](/sdk/javascript/errors-and-pitfalls#pitfalls)).
+</ParamField>
+
+<ParamField path="startupCommand" type="string">
+  Custom command used to start the application. When omitted, the API uses the default of the runtime.
+</ParamField>
+
+<ParamField path="autoRestartEnabled" type="boolean">
+  Restart the application automatically. The API default is `false`.
+</ParamField>
+
+<ParamField path="exposedViaWeb" type="boolean">
+  Expose the application to the web. Do not set it to `true`: the API then requires `port` and `assignedSubdomain`, which the SDK cannot send, so the request fails with `400`.
+</ParamField>
+
+<ParamField path="teamId" type="string">
+  ID of the team to create the application in. It is sent to the API as the `team` field.
+</ParamField>
+
+<ParamField path="environmentVariables" type="{ key: string; value: string }[]">
+  Environment variables of the application. Values must not be empty.
+</ParamField>
+
+```typescript
+import fs from "fs";
+import CamposCloudSDK from "@camposcloud/sdk";
+
+const api = new CamposCloudSDK({ apiToken: process.env.CAMPOSCLOUD_TOKEN! });
+
+const file = await fs.promises.readFile("./my-app.zip");
+
+const app = await api.createApplication({
+    appName: "My App",
+    file,
+    mainFile: "index.js",
+    memoryMB: 256,
+    runtimeEnvironment: "nodejs",
+    environmentVariables: [{ key: "NODE_ENV", value: "production" }],
+});
+
+console.log(`Application created with ID ${app.data._id}`);
+```
+
+**Returns:** [`Application`](/sdk/javascript/application)
+
+**Throws:** a plain `Error` before sending the request when `file`, `appName`, `mainFile` or `runtimeEnvironment` is missing, when `memoryMB` is missing or not a number, or when an environment variable has a key or value that is not a string.
+
+<Warning>
+  The API accepts 1 creation every 3 seconds. Creating applications in a loop without waiting results in `429` errors.
+</Warning>
+
+### updateApplication
+
+```typescript
+updateApplication(data: UpdateApplicationDataParams): Promise<ApplicationResponseData>
+```
+
+Updates the settings of an application (`POST /v1/apps/{appId}/update`).
+
+<ParamField path="appId" type="string" required>
+  ID of the application.
+</ParamField>
+
+<ParamField path="appName" type="string" required>
+  Name of the application.
+</ParamField>
+
+<ParamField path="memoryMB" type="number" required>
+  Memory to allocate, in MB.
+</ParamField>
+
+<ParamField path="runtimeEnvironment" type='"nodejs" | "python"' required>
+  Runtime of the application.
+</ParamField>
+
+<ParamField path="startupCommand" type="string" required>
+  Command used to start the application. It is required by the TypeScript type; at runtime it is only sent when it is not empty.
+</ParamField>
+
+<ParamField path="autoRestartEnabled" type="boolean">
+  Restart the application automatically.
+</ParamField>
+
+<ParamField path="exposedViaWeb" type="boolean">
+  Expose the application to the web. Only `false` is useful here: `true` makes the API require `port`, which the SDK cannot send.
+</ParamField>
+
+<ParamField path="environmentVariables" type="{ key: string; value: string }[]">
+  Replaces **all** environment variables. Omit it to keep the current ones; pass `[]` to remove all of them.
+</ParamField>
+
+<ParamField path="teamId" type="string">
+  Present in the TypeScript type but ignored: it is never sent to the API.
+</ParamField>
+
+```typescript
+const updated = await api.updateApplication({
+    appId: "YOUR_APP_ID",
+    appName: "My App",
+    memoryMB: 512,
+    runtimeEnvironment: "nodejs",
+    startupCommand: "node index.js",
+    environmentVariables: [{ key: "NODE_ENV", value: "production" }],
+});
+
+if (updated.restartRequired) {
+    await api.restartApplication({ appId: updated._id });
+}
+```
+
+**Returns:** [`ApplicationResponseData`](/sdk/javascript/types#applicationresponsedata) with the updated application (not an `Application` instance).
+
+**Throws:** a plain `Error` before sending the request when `appId`, `appName` or `runtimeEnvironment` is missing, when `memoryMB` is missing or not a number, or when an environment variable has a key or value that is not a string.
+
+<Note>
+  Even though the API can update a single field, the SDK always requires and sends `appName`, `memoryMB` and `runtimeEnvironment`. Most changes only take effect after the application is started or restarted; check `restartRequired` in the result.
+</Note>
+
+<Warning>
+  The API accepts 1 update every 3 seconds.
+</Warning>
+
+### startApplication
+
+```typescript
+startApplication({ appId }: { appId: string }): Promise<ApplicationResponseData>
+```
+
+Starts an application (`POST /v1/apps/{appId}/start`).
+
+```typescript
+const app = await api.startApplication({ appId: "YOUR_APP_ID" });
+console.log(app.currentResourceMetrics.online);
+```
+
+**Returns:** [`ApplicationResponseData`](/sdk/javascript/types#applicationresponsedata)
+
+<Warning>
+  The API answers with `500` when the application is already running, which makes this method throw.
+</Warning>
+
+### stopApplication
+
+```typescript
+stopApplication({ appId }: { appId: string }): Promise<ApplicationResponseData>
+```
+
+Stops an application (`POST /v1/apps/{appId}/stop`).
+
+```typescript
+await api.stopApplication({ appId: "YOUR_APP_ID" });
+```
+
+**Returns:** [`ApplicationResponseData`](/sdk/javascript/types#applicationresponsedata)
+
+<Warning>
+  The API answers with `500` when the application is already stopped, which makes this method throw.
+</Warning>
+
+### restartApplication
+
+```typescript
+restartApplication({ appId }: { appId: string }): Promise<ApplicationResponseData>
+```
+
+Restarts an application (`POST /v1/apps/{appId}/restart`). If the application has pending settings (`restartRequired`), it is rebuilt with them.
+
+```typescript
+await api.restartApplication({ appId: "YOUR_APP_ID" });
+```
+
+**Returns:** [`ApplicationResponseData`](/sdk/javascript/types#applicationresponsedata)
+
+<Warning>
+  The API answers with `500` when the application is not running and has no pending settings. Use `startApplication` for stopped applications.
+</Warning>
+
+### deleteApplication
+
+```typescript
+deleteApplication({ appId }: { appId: string }): Promise<AxiosResponse>
+```
+
+Deletes an application (`DELETE /v1/apps/{appId}/delete`). This cannot be undone.
+
+```typescript
+const response = await api.deleteApplication({ appId: "YOUR_APP_ID" });
+console.log(response.status);       // 200
+console.log(response.data.message); // "Application deleted successfully."
+```
+
+**Returns:** the complete Axios response, not only the body. The body of the API is in `response.data`.
+
+`startApplication`, `stopApplication`, `restartApplication` and `deleteApplication` throw `Error("Application ID (appId) must be a valid string.")` when `appId` is empty or not a string.
+
+## Files
+
+### uploadFile
+
+```typescript
+uploadFile({ appId, file, path }: { appId: string; file: Buffer; path?: string }): Promise<{ message: string } | AxiosError>
+```
+
+Uploads a zip file and extracts it inside the application (`POST /v1/apps/{appId}/upload`).
+
+<ParamField path="appId" type="string" required>
+  ID of the application.
+</ParamField>
+
+<ParamField path="file" type="Buffer" required>
+  A `.zip` file. The API only accepts zip files and **extracts** them into `path`. To upload a single file, put it in a zip first.
+</ParamField>
+
+<ParamField path="path" type="string">
+  Directory of the application where the zip is extracted, for example `/` or `/src`. Optional in the signature, but **always pass it** (see the warning below).
+</ParamField>
+
+```typescript
+import fs from "fs";
+
+const zip = await fs.promises.readFile("./update.zip");
+
+const result = await api.uploadFile({ appId: "YOUR_APP_ID", file: zip, path: "/" });
+console.log(result); // { message: "Files uploaded successfully" }
+```
+
+**Returns:** `{ message: string }`. The `AxiosError` in the declared return type is never actually returned: failures are thrown.
+
+**Throws:** a plain `Error` when `appId` is not a string, when `path` is not a string, or when `file` is not a `Buffer`.
+
+<Warning>
+  When `path` is omitted, the SDK sends the literal text `undefined` as the path, so the zip is extracted into a folder called `undefined` inside your application. Always pass `path`; use `"/"` for the root of the application.
+</Warning>
+
+<Warning>
+  `path` is added to the URL as is, without URL encoding. Avoid spaces and characters such as `&`, `#`, `?` and `%`, or encode the value yourself with `encodeURIComponent`.
+</Warning>
+
+<Note>
+  The SDK cannot send the `restart` query parameter of the API, so the application is not restarted after the upload. Call `restartApplication` if you need it. The API accepts 1 upload every 3 seconds.
+</Note>
+
+### downloadFile
+
+```typescript
+downloadFile({ appId, path }: { appId: string; path?: string }): Promise<Buffer>
+```
+
+Downloads a file or a directory of the application (`GET /v1/apps/{appId}/download`).
+
+<ParamField path="appId" type="string" required>
+  ID of the application.
+</ParamField>
+
+<ParamField path="path" type="string">
+  File or directory to download. When omitted, the whole application is downloaded.
+</ParamField>
+
+```typescript
+import fs from "fs";
+
+const zip = await api.downloadFile({ appId: "YOUR_APP_ID", path: "/src" });
+await fs.promises.writeFile("./src-backup.zip", zip);
+```
+
+**Returns:** a `Buffer` with a **zip archive**. The API always answers with a zip, even when `path` points to a single file, so unzip the result to get the file.
+
+**Throws:** a plain `Error` when `appId` is not a string or when `path` is not a string.
+
+<Note>
+  As in `uploadFile`, `path` is not URL encoded by the SDK. The API accepts 20 downloads per minute and does not include `node_modules`, `.npm`, `.git`, `.cache` and `.bun` folders in the archive.
+</Note>
+
+## Teams
+
+### getTeams
+
+```typescript
+getTeams(): Promise<TeamResponseData[]>
+```
+
+Returns every team you own or are a member of (`GET /v1/teams`). Teams you own come first.
+
+```typescript
+const teams = await api.getTeams();
+
+for (const team of teams) {
+    console.log(team._id, team.name, `${team.applicationsCount} applications`);
+}
+```
+
+**Returns:** [`TeamResponseData[]`](/sdk/javascript/types#teamresponsedata)
+
+### getTeam
+
+```typescript
+getTeam({ teamId }: { teamId: string }): Promise<TeamResponseData>
+```
+
+Returns one team you own or are a member of (`GET /v1/teams/{teamId}`).
+
+<ParamField path="teamId" type="string" required>
+  ID of the team.
+</ParamField>
+
+```typescript
+const team = await api.getTeam({ teamId: "YOUR_TEAM_ID" });
+console.log(team.owner.name, team.members.length);
+```
+
+**Returns:** [`TeamResponseData`](/sdk/javascript/types#teamresponsedata). The API does not return `applicationsCount` for a single team, so that property is `undefined` here even though the type declares it.
+
+**Throws:** `Error("Team ID (teamId) must be a valid string.")` when `teamId` is empty or not a string.
+
+<Note>
+  The SDK has no method to list the applications of a team, nor to create, rename or delete teams or manage their members and invites. Use the [Teams endpoints](/api-reference/endpoint/v1/teams/list) of the API for that.
+</Note>

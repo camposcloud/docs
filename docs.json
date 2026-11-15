@@ -27,6 +27,7 @@
           {
             "group": "API documentation",
             "pages": [
+              "api-reference/introduction",
               "api-reference/authentication",
               "api-reference/api-limits"
             ]
@@ -58,9 +59,41 @@
                 "group": "File System",
                 "pages": [
                   "api-reference/endpoint/v1/filesystem/getFiles",
+                  "api-reference/endpoint/v1/filesystem/createFile",
+                  "api-reference/endpoint/v1/filesystem/renameFile",
+                  "api-reference/endpoint/v1/filesystem/moveFiles",
                   "api-reference/endpoint/v1/filesystem/deleteFile",
                   "api-reference/endpoint/v1/filesystem/uploadFile",
                   "api-reference/endpoint/v1/filesystem/downloadFile"
+                ]
+              },
+              {
+                "group": "Databases",
+                "pages": [
+                  "api-reference/endpoint/v1/databases/list",
+                  "api-reference/endpoint/v1/databases/databaseId",
+                  "api-reference/endpoint/v1/databases/create",
+                  "api-reference/endpoint/v1/databases/update",
+                  "api-reference/endpoint/v1/databases/updateCredentials",
+                  "api-reference/endpoint/v1/databases/start",
+                  "api-reference/endpoint/v1/databases/stop",
+                  "api-reference/endpoint/v1/databases/restart",
+                  "api-reference/endpoint/v1/databases/delete"
+                ]
+              },
+              {
+                "group": "Teams",
+                "pages": [
+                  "api-reference/endpoint/v1/teams/list",
+                  "api-reference/endpoint/v1/teams/teamId",
+                  "api-reference/endpoint/v1/teams/create",
+                  "api-reference/endpoint/v1/teams/update",
+                  "api-reference/endpoint/v1/teams/delete",
+                  "api-reference/endpoint/v1/teams/invite",
+                  "api-reference/endpoint/v1/teams/resendInvite",
+                  "api-reference/endpoint/v1/teams/revokeInvite",
+                  "api-reference/endpoint/v1/teams/updateMember",
+                  "api-reference/endpoint/v1/teams/removeMember"
                 ]
               }
             ]
@@ -79,7 +112,11 @@
           {
             "group": "JavaScript",
             "pages": [
-              "sdk/javascript/getting-started"
+              "sdk/javascript/getting-started",
+              "sdk/javascript/client",
+              "sdk/javascript/application",
+              "sdk/javascript/types",
+              "sdk/javascript/errors-and-pitfalls"
             ]
           },
           {

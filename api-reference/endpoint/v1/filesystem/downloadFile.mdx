@@ -1,9 +1,13 @@
 ---
 title: '/v1/apps/{appId}/download'
-description: 'This endpoint download a file from an application by its ID.'
+description: 'This endpoint downloads a file or directory from an application by its ID.'
 openapi: 'GET /v1/apps/{appId}/download'
 ---
 
 <Warning>
-  This endpoint has a rate limit 20 requests per minute.
+  This endpoint has a rate limit of 20 requests per minute.
 </Warning>
+
+<Note>
+  The response is always a zip archive, even when `path` points to a single file. The suggested file name in the `Content-Disposition` header does not end with `.zip`, so add the extension when saving the response.
+</Note>

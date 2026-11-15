@@ -1,5 +1,13 @@
 ---
 title: '/v1/apps/{appId}/files'
-description: 'This endpoint retrieves the files of an application by its ID.'
+description: 'This endpoint lists a directory or reads a file of an application by its ID.'
 openapi: 'GET /v1/apps/{appId}/files'
 ---
+
+<Note>
+  The response depends on `path`: a directory returns its entries in `files`, a file returns its text in `content`.
+</Note>
+
+<Warning>
+  A `path` that does not exist returns `500`, not `404`.
+</Warning>

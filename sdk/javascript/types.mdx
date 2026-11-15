@@ -1,0 +1,227 @@
+---
+title: 'Types'
+description: 'The TypeScript types exported by the CamposCloud JavaScript SDK.'
+icon: 'brackets-curly'
+---
+
+The package exports its types, so you can annotate your own code:
+
+```typescript
+import type {
+    ApplicationResponseData,
+    CreateApplicationDataParams,
+    UpdateApplicationDataParams,
+    TeamResponseData,
+    UserData,
+} from "@camposcloud/sdk";
+```
+
+<Warning>
+  The types describe only part of what the API returns, and a few of them do not match it exactly. The SDK does not validate or convert responses: at runtime you receive the JSON of the API as is. The differences that are known are listed under each type. The [API reference](/api-reference/introduction) describes the real responses.
+</Warning>
+
+## ApplicationResponseData
+
+An application, as returned by `getApplications`, `updateApplication`, `startApplication`, `stopApplication` and `restartApplication`, and available in `Application.data`.
+
+```typescript
+interface ApplicationResponseData {
+    _id: string;
+    containerId: string;
+    teamId: string | null;
+    restartRequired: boolean;
+    userId: string;
+    name: string;
+    allocatedMemoryMB: number;
+    allocatedVCpu: number;
+    workerNodeId: {
+        _id: string;
+        nodeName: string;
+    };
+    currentResourceMetrics: {
+        timestamp?: string;
+        online: boolean;
+        uptime?: number;
+        cpuUsagePercent?: number;
+        memoryUsageBytes?: number;
+        memoryLimitBytes?: number;
+        networkRxBytes?: number;
+        networkTxBytes?: number;
+    };
+    containerImage: string;
+    exposedViaWeb: boolean;
+    internalPort: number | null;
+    externalPort: number | null;
+    assignedSubdomain: string | null;
+    startupCommand: string;
+    installDependenciesCmd: string | null;
+    runtimeEnvironment: string;
+    autoRestartEnabled: boolean;
+    status: "active" | "creating" | "suspended";
+    createdAt: string;
+    updatedAt: string;
+}
+```
+
+Differences from the API:
+
+- `teamId` is only a string (or `null`) in the application list and in the result of `createApplication`. In `getApplication`, `updateApplication`, `startApplication`, `stopApplication` and `restartApplication` the API returns the **whole team object** for team applications.
+- `currentResourceMetrics` is not returned when an application is created, so it is `undefined` in the `data` of the instance returned by `createApplication`.
+- `internalPort`, `externalPort` and `assignedSubdomain` can be missing (`undefined`) instead of `null` when the application is not exposed via web.
+- `status` can also be `"error"` after a failed rebuild.
+- The API returns more fields than the type declares, such as `mainFile`, `environmentVariables`, `assignedCustomDomain`, `repository`, `githubDeploys` and `currentResourceMetrics.startedAt`. They are present at runtime, but TypeScript does not know about them.
+
+## CreateApplicationDataParams
+
+The argument of [`createApplication`](/sdk/javascript/client#createapplication).
+
+```typescript
+interface CreateApplicationDataParams {
+    file: Buffer;
+    appName: string;
+    mainFile: string;
+    memoryMB: number;
+    runtimeEnvironment: "nodejs" | "python";
+    exposedViaWeb?: boolean;
+    autoRestartEnabled?: boolean;
+    startupCommand?: string;
+    teamId?: string;
+    environmentVariables?: { key: string; value: string }[];
+}
+```
+
+Differences from the API:
+
+- `runtimeEnvironment` does not include `"bun"`, which the API accepts.
+- `mainFile` is required by the SDK, while the API also accepts a `startupCommand` without a `mainFile`.
+- There is no `port` nor `assignedSubdomain`, which the API requires when `exposedViaWeb` is `true`.
+- `teamId` is sent to the API as `team`.
+
+## UpdateApplicationDataParams
+
+The argument of [`updateApplication`](/sdk/javascript/client#updateapplication). `Application.update` takes the same object without `appId`.
+
+```typescript
+interface UpdateApplicationDataParams {
+    appId: string;
+    appName: string;
+    memoryMB: number;
+    startupCommand: string;
+    runtimeEnvironment: "nodejs" | "python";
+    exposedViaWeb?: boolean;
+    autoRestartEnabled?: boolean;
+    teamId?: string;
+    environmentVariables?: { key: string; value: string }[];
+}
+```
+
+Differences from the API:
+
+- Every field of the API is optional, but the SDK requires `appName`, `memoryMB` and `runtimeEnvironment` (and the type also requires `startupCommand`).
+- `teamId` is ignored by the SDK. The API has no field to move an application to another team.
+- `runtimeEnvironment` does not include `"bun"`.
+- There is no `port`, `assignedSubdomain` nor `assignedCustomDomain`.
+
+## UserData
+
+The result of [`getMe`](/sdk/javascript/client#getme).
+
+```typescript
+interface UserData {
+    _id: string;
+    name: string;
+    email: string;
+    isEmail2FAEnabled: boolean;
+    hasClaimedFreePlan: boolean;
+    createdAt: string;
+    activeSessions: [
+        {
+            id: string;
+            device: string;
+            ip: string;
+            browser: string;
+            os: string;
+            lastActive: string;
+        }
+    ];
+    currentSubscription?: {
+        planReference: {
+            _id: string;
+            name: string;
+            type: string;
+            enabled: string;
+            description: string;
+            color: string;
+            createdAt: string;
+            updatedAt: string;
+            ramMB?: number;
+        };
+        negotiatedPrice?: number;
+        allocatedMemoryMB?: number;
+        allocatedVCpus?: number;
+        amountPaid: number;
+        status: "active" | "suspended";
+        startAt: string;
+        endAt: string;
+    };
+}
+```
+
+Differences from the API:
+
+- `activeSessions` is declared as a tuple with exactly one session, but the API returns an array with any number of sessions (including none).
+- `currentSubscription.status` is `"active"`, `"pending_cleanup"` or `"grace_period"` in the API. `"suspended"` is never returned.
+- `currentSubscription.planReference.enabled` is a boolean in the API, not a string.
+
+## TeamResponseData
+
+The result of [`getTeam`](/sdk/javascript/client#getteam), and the item type of [`getTeams`](/sdk/javascript/client#getteams).
+
+```typescript
+interface TeamResponseData {
+    _id: string;
+    name: string;
+    owner: {
+        _id: string;
+        name: string;
+        email: string;
+    };
+    members: {
+        user: {
+            _id: string;
+            name: string;
+            email: string;
+        };
+        permissions: {
+            canCreateApplication: boolean;
+            canDeleteApplication: boolean;
+            canUpdateApplicationSettings: boolean;
+            canChangeStatusApplication: boolean;
+            canEditApplicationFiles: boolean;
+            canSeeApplicationFiles: boolean;
+            canDeleteApplicationFiles: boolean;
+        };
+    }[];
+    invites: {
+        email: string;
+        permissions: {
+            canCreateApplication: boolean;
+            canDeleteApplication: boolean;
+            canUpdateApplicationSettings: boolean;
+            canChangeStatusApplication: boolean;
+            canEditApplicationFiles: boolean;
+            canSeeApplicationFiles: boolean;
+            canDeleteApplicationFiles: boolean;
+        };
+    }[];
+    createdAt: string;
+    updatedAt: string;
+    applicationsCount: number;
+}
+```
+
+Differences from the API:
+
+- `applicationsCount` is only returned by `getTeams`. It is `undefined` in the result of `getTeam`.
+- The API also returns the permissions `canManageApplicationBackup`, `canCreateDatabase`, `canDeleteDatabase`, `canUpdateDatabaseSettings` and `canChangeStatusDatabase`.
+- The API returns more fields than the type declares, such as `databaseInstancesCount` (in `getTeams`), the owner's `currentSubscription` (in `getTeam`) and the `userId`, `invitedAt`, `code` and `subscriptionEndsAt` of each invite.

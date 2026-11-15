@@ -7,3 +7,19 @@ openapi: 'POST /v1/apps/{appId}/update'
 <Warning>
   This endpoint has a rate limit of 1 request every 3 seconds.
 </Warning>
+
+<Note>
+  Only the fields you send are changed. Fields that are not listed below (for example `mainFile` or `team`) are rejected with `400`.
+</Note>
+
+<Note>
+  Most changes are not applied immediately: the response comes back with `restartRequired: true` and the new settings take effect the next time the application is started or restarted.
+</Note>
+
+<Warning>
+  `environmentVariables` replaces the whole list. Omit the field to keep the current variables; send `[]` to remove all of them. A variable with an empty `value` makes the request fail with `500`.
+</Warning>
+
+<Tip>
+  The `camposcloud.config` file stored with your application is rewritten on every update using **only** the fields present in the request. Send `appName`, `memoryMB`, `runtimeEnvironment` and `startupCommand` together if you want that file to stay complete.
+</Tip>

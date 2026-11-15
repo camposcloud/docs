@@ -1,0 +1,13 @@
+---
+title: '/v1/databases/{databaseId}'
+description: 'This endpoint permanently deletes a database and all of its data.'
+openapi: 'DELETE /v1/databases/{databaseId}'
+---
+
+<Warning>
+  This endpoint has a rate limit of 1 request every 3 seconds, shared with the other endpoints that change databases (create, update, update credentials and delete).
+</Warning>
+
+<Warning>
+  All the data stored in the database is deleted and cannot be recovered.
+</Warning>

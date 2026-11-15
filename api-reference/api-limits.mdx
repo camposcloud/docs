@@ -9,7 +9,7 @@ icon: 'shield'
 </Warning>
 
 <Warning>
-  The API limits are applied per account, not per application. This means that if you have multiple applications using the same account, they will share the same limits.
+  The API limits are applied per account, not per application. This means that if you have multiple applications using the same account, they will share the same limits. Actions made in the Dashboard with the same account count towards the same limits.
 </Warning>
 
 <Warning>
@@ -17,16 +17,53 @@ icon: 'shield'
 </Warning>
 
 <Note>
-  Beyond the global limit, some endpoints may have their own specific limits. You can find these limits in the endpoints documentation.
+  Beyond the global limit, some endpoints may have their own specific limits. You can find these limits below and in the endpoints documentation.
 </Note> 
 
-## Using the API Key
+## Rate limits
 The current API limits global are as follows:
 - **Rate Limit**: 180 requests per minute per account. ( approx. 3 requests per second )
+
+<Note>
+  The global limit applies to every endpoint except `GET /v1/users/@me`, which is not rate limited.
+</Note>
+
+Some endpoints have an additional limit, applied on top of the global one:
+
+| Endpoint | Limit |
+| --- | --- |
+| `POST /v1/apps/create` | 1 request every 3 seconds |
+| `POST /v1/apps/{appId}/update` | 1 request every 3 seconds |
+| `POST /v1/apps/{appId}/upload`, `DELETE /v1/apps/{appId}/files`, `POST /v1/apps/{appId}/files/create`, `PATCH /v1/apps/{appId}/files/rename` and `PATCH /v1/apps/{appId}/files/move` | 1 request every 3 seconds, shared between these endpoints |
+| `POST /v1/databases/create`, `PUT /v1/databases/{databaseId}`, `POST /v1/databases/{databaseId}/update-credentials` and `DELETE /v1/databases/{databaseId}` | 1 request every 3 seconds, shared between these endpoints |
+| `POST /v1/databases/{databaseId}/start`, `/stop` and `/restart` | 10 requests per minute, shared between these endpoints |
+| `GET /v1/apps/{appId}/download` | 20 requests per minute |
+
+When a limit is exceeded the API answers with the status `429` and a JSON body with an `error` field, for example:
+
+```json
+{
+  "error": "Too many requests, please try again later"
+}
+```
 
 <Tip>
   You can check the response headers to monitor your current rate limit status. Look for the following headers:
 </Tip>
-- `X-RateLimit-Limit`: The maximum number of requests allowed during the current rate limit window.
-- `X-RateLimit-Remaining`: The number of requests you have left in the current window.
-- `X-RateLimit-Reset`: The number of seconds until the rate limit count resets.
+- `RateLimit-Limit`: The maximum number of requests allowed during the current rate limit window.
+- `RateLimit-Remaining`: The number of requests you have left in the current window.
+- `RateLimit-Reset`: The number of seconds until the rate limit count resets.
+- `RateLimit-Policy`: The limit and the size of the window, in seconds (for example `180;w=60`).
+- `Retry-After`: Only sent with a `429` response. The number of seconds to wait before trying again.
+
+<Note>
+  On endpoints with an additional limit, the `RateLimit-*` headers describe that additional limit instead of the global one.
+</Note>
+
+## Data limits
+- **Uploads**: files sent to `POST /v1/apps/create` and `POST /v1/apps/{appId}/upload` must be `.zip` files of at most 100 MB.
+- **Pagination**: `GET /v1/apps` returns 10 applications per page by default. Use the `page` and `limit` query parameters to retrieve the others.
+- **Databases**: `GET /v1/databases` returns 10 databases per page by default and at most 100 (`limit`).
+- **File content**: `POST /v1/apps/{appId}/files/create` accepts a request body of at most 100 KB. Use the upload endpoint for larger files.
+- **Paths per request**: deleting and moving files accept at most 50 paths per request.
+- **Teams**: an account can own at most 5 teams, and a team name can have at most 50 characters.

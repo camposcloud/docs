@@ -10,15 +10,47 @@ First you need to enter the [Dashboard](https://camposcloud.com/dashboard/applic
   Dont forget to save your API Key, you will not be able to see it again. If you lose it, you will need to generate a new one.
 </Note>
 
+<Warning>
+  Each account has a single API Key. Generating a new one immediately invalidates the previous one.
+</Warning>
+
 <Danger type="alert">
   Dont share your API Key with anyone, it is a secret key that allows access to your account.
 </Danger>
 
 ## Using the API Key
-To use the API Key, you need to add it to the `Authorization` header of your requests. The format is as follows:
+To use the API Key, you need to add it to the `Authorization` header of your requests, using the `Bearer` scheme. The format is as follows:
 
 ```json
 {
   "Authorization": "Bearer YOUR_API_KEY_HERE"
 }
 ```
+
+For example, with cURL:
+
+```bash
+curl https://api.camposcloud.com/v1/users/@me \
+  -H "Authorization: Bearer YOUR_API_KEY_HERE"
+```
+
+<Note>
+  The API Key has two parts separated by a colon (`:`). Always send the complete value, exactly as it was shown in the Dashboard.
+</Note>
+
+## Authentication errors
+When the request cannot be authenticated, the API answers with the status `401` and a JSON body with an `error` field:
+
+```json
+{
+  "error": "Invalid developer token"
+}
+```
+
+| `error` | Cause |
+| --- | --- |
+| `Missing or malformed authorization header` | The `Authorization` header is missing or does not start with `Bearer `. |
+| `Missing developer token in authorization header` | The header has no token after `Bearer `. |
+| `Invalid developer token format` | The token does not have the two parts separated by a colon. |
+| `Developer token not found or invalid` | The account of the token does not exist or has no API Key. |
+| `Invalid developer token` | The token does not match the current API Key of the account (for example, a newer one was generated). |

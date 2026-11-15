@@ -1,5 +1,13 @@
 ---
 title: '/v1/apps'
-description: 'This endpoint retrieves a list of all applications.'
+description: 'This endpoint retrieves a paginated list of applications.'
 openapi: 'GET /v1/apps'
 ---
+
+<Note>
+  The list is paginated and returns **10 applications per page by default**. Use `page` and `limit`, and keep requesting pages while `pagination.hasNextPage` is `true`.
+</Note>
+
+<Note>
+  Without the `team` parameter only your personal applications are returned. Applications that belong to a team are only returned when you pass the ID of that team in `team`.
+</Note>

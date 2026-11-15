@@ -1,0 +1,9 @@
+---
+title: '/v1/teams/{teamId}/members/{memberId}'
+description: 'This endpoint replaces the permissions of a team member.'
+openapi: 'PUT /v1/teams/{teamId}/members/{memberId}'
+---
+
+<Warning>
+  The whole permission set is replaced. Every permission that is not sent is set to `false`.
+</Warning>

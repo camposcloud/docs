@@ -1,0 +1,13 @@
+---
+title: '/v1/databases/{databaseId}'
+description: 'This endpoint retrieves a database by its ID.'
+openapi: 'GET /v1/databases/{databaseId}'
+---
+
+<Note>
+  Only the account that owns the database can use this endpoint. Other team members receive `404` and should use `GET /v1/databases?team={teamId}`.
+</Note>
+
+<Note>
+  The password of a database is never returned by the API. Store it when you create the database or change its password.
+</Note>

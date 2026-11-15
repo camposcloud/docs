@@ -3,3 +3,7 @@ title: '/v1/apps/{appId}/stop'
 description: 'This endpoint stops an application by its ID.'
 openapi: 'POST /v1/apps/{appId}/stop'
 ---
+
+<Warning>
+  Stopping an application that is already stopped returns `500`. Check `currentResourceMetrics.online` first.
+</Warning>
