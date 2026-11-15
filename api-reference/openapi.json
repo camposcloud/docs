@@ -3353,6 +3353,109 @@
           }
         }
       }
+    },
+    "/v1/apps/{appId}/logs": {
+      "get": {
+        "tags": [
+          "Applications"
+        ],
+        "description": "Streams the console of an application in real time, **read-only**. The response is a [Server-Sent Events](https://html.spec.whatwg.org/multipage/server-sent-events.html) stream (`text/event-stream`) that stays open: first the most recent lines, then every new line as the application writes it. Nothing can be sent to the application through this endpoint.\n\nThe owner of the application, the owner of its team and the members of its team can open the stream (the same people who see the console in the dashboard).\n\nEvents:\n\n| Event | Data | Meaning |\n| --- | --- | --- |\n| `ready` | JSON `{ applicationId, name, online, tail }` | Sent once, when the stream opens. |\n| `clear` | empty | Discard what you have shown: the most recent lines are sent next. Sent after `ready` and again whenever the log is sent again (for example after the application restarts). |\n| `log` | text | Output of the application. A block with line breaks is sent as several `data:` lines, which SSE clients join with `\\n`. |\n| `status` | JSON `{ action }` | Container event, such as `start`, `die`, `restart` or `oom`. |\n| `end` | JSON `{ reason, message }` | The server closed the stream. `reason` is `timeout`, `error`, `worker-lost` or `slow-client`. |\n\nA comment line (`: ping`) is sent every 25 seconds to keep the connection open.",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the application.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{24}$"
+            }
+          },
+          {
+            "name": "tail",
+            "in": "query",
+            "required": false,
+            "description": "How many recent lines to send before the live lines. Other query parameters are refused.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 500,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The stream. It stays open until the client disconnects or the server sends `end`.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "example": "retry: 5000\n\nevent: ready\ndata: {\"applicationId\":\"64b7f0c2a1b2c3d4e5f60718\",\"name\":\"my-bot\",\"online\":true,\"tail\":100}\n\nevent: clear\ndata: \n\nevent: log\ndata: Bot connected as my-bot#1234\n\nevent: log\ndata: Error: something failed\ndata:     at main (index.js:10:5)\n\n: ping\n\nevent: status\ndata: {\"action\":\"die\"}\n\nevent: end\ndata: {\"reason\":\"timeout\",\"message\":\"The stream reached its maximum duration. Reconnect to continue.\"}\n\n"
+              }
+            }
+          },
+          "400": {
+            "description": "`appId` is not a valid ID, `tail` is not an integer between 0 and 500, or an unknown query parameter was sent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "'tail' must be an integer between 0 and 500."
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "You are not the owner of the application nor a member of its team.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "You do not have permission to perform this action on this application."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Application not found or you do not have permission to access it."
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many streams: at most 5 open at the same time per account, and at most 20 new connections per minute.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "At most 5 log streams can be open at the same time."
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3759,7 +3862,7 @@
       },
       "TeamInvite": {
         "type": "object",
-        "description": "A pending invite.",
+        "description": "A pending invite. The invite code is never returned by the API; it is only sent to the invited e-mail address.",
         "properties": {
           "_id": {
             "type": "string",
@@ -3781,11 +3884,6 @@
             "format": "date-time",
             "description": "When the invite e-mail was last sent.",
             "example": "2025-01-01T12:00:00.000Z"
-          },
-          "code": {
-            "type": "string",
-            "description": "Code used in the invite link.",
-            "example": "invite-code"
           },
           "permissions": {
             "$ref": "#/components/schemas/TeamPermissions",
@@ -3978,8 +4076,8 @@
                 "example": "user@example.com"
               },
               "currentSubscription": {
-                "$ref": "#/components/schemas/Subscription",
-                "description": "Current subscription of the owner. Absent when the owner has no plan."
+                "$ref": "#/components/schemas/TeamOwnerSubscription",
+                "description": "Plan and resources of the owner, without billing values. Absent when the owner has no plan."
               }
             }
           },
@@ -5068,6 +5166,47 @@
             "pattern": "^[A-Za-z][A-Za-z0-9_]{0,62}$",
             "description": "Name of the initial database. **Required for `mysql` and `postgresql`, not allowed for `mongodb` and `redis`.** Up to 63 letters, numbers or `_`, starting with a letter. Reserved names such as `mysql`, `postgres`, `information_schema` and `admin` are refused.",
             "example": "app_db"
+          }
+        }
+      },
+      "TeamOwnerSubscription": {
+        "type": "object",
+        "description": "Plan and resources of the team owner. Billing values (amount paid, negotiated price) are not included.",
+        "properties": {
+          "planReference": {
+            "$ref": "#/components/schemas/Plan",
+            "description": "The subscribed plan."
+          },
+          "allocatedMemoryMB": {
+            "type": "integer",
+            "description": "Memory available to the account, in MB. Only on `customized` and `business` plans.",
+            "example": 2048
+          },
+          "allocatedVCpus": {
+            "type": "number",
+            "description": "vCPUs given to each application. Only on `customized` plans."
+          },
+          "status": {
+            "type": "string",
+            "description": "Status of the subscription.",
+            "example": "active",
+            "enum": [
+              "active",
+              "pending_cleanup",
+              "grace_period"
+            ]
+          },
+          "startAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the current period started.",
+            "example": "2025-01-01T12:00:00.000Z"
+          },
+          "endAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the current period ends.",
+            "example": "2025-01-01T12:00:00.000Z"
           }
         }
       }

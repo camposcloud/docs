@@ -38,6 +38,7 @@ Some endpoints have an additional limit, applied on top of the global one:
 | `POST /v1/databases/create`, `PUT /v1/databases/{databaseId}`, `POST /v1/databases/{databaseId}/update-credentials` and `DELETE /v1/databases/{databaseId}` | 1 request every 3 seconds, shared between these endpoints |
 | `POST /v1/databases/{databaseId}/start`, `/stop` and `/restart` | 10 requests per minute, shared between these endpoints |
 | `GET /v1/apps/{appId}/download` | 20 requests per minute |
+| `GET /v1/apps/{appId}/logs` | 20 new connections per minute, at most 5 streams open at the same time; each stream is closed after 30 minutes |
 
 When a limit is exceeded the API answers with the status `429` and a JSON body with an `error` field, for example:
 
