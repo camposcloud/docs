@@ -1,0 +1,144 @@
+---
+title: 'Deploy an application'
+description: 'Create an application from a zip file or a GitHub repository, put it on the web and change it later.'
+icon: 'cloud-arrow-up'
+---
+
+This guide follows an application from the first upload to the first change. Every field is described in [`POST /v1/apps/create`](/api-reference/endpoint/v1/applications/create).
+
+## Before you start
+
+- An [API Key](/api-reference/authentication).
+- Enough memory left in your plan. The memory you give an application is taken from the plan, together with your databases.
+- Your project as a `.zip` file of at most 100 MB. The `node_modules` folders inside it are discarded, so the dependencies are installed again on the platform.
+
+## 1. Choose how it starts
+
+An application needs one of these two, and the runtime decides what you can use:
+
+| `runtimeEnvironment` | Command when you send only `mainFile` |
+| --- | --- |
+| `nodejs` | `node <mainFile>` |
+| `bun` | `bun <mainFile>` |
+| `python` | `python -u <mainFile>` |
+
+Send `startupCommand` instead when you need something else, for example `npm run start`. When you send both, `startupCommand` is used.
+
+## 2. Choose the memory
+
+`memoryMB` is required. It must be at least the platform minimum (256 MB by default) and fit in the memory that is left on your plan. When it does not fit, the request is refused, so list your applications and databases first: both [`GET /v1/apps`](/api-reference/endpoint/v1/applications/list) and [`GET /v1/databases`](/api-reference/endpoint/v1/databases/list) return `totalUsedRAM`.
+
+## 3. Decide if it is on the web
+
+An application that only runs in the background, like a bot, does not need to be on the web. Leave `exposedViaWeb` out.
+
+To put it on the web, send all of these:
+
+- `exposedViaWeb`: `true`.
+- `port`: the port your code listens on, from 1 to 65535.
+- `assignedSubdomain`: lowercase letters, numbers and hyphens, up to 63 characters, not used by another application. The address is `https://<subdomain>.camposcloud.app`.
+
+<Warning>
+  Your code must listen on the same `port` you send, or the platform cannot reach it.
+</Warning>
+
+## 4. Create it
+
+<CodeGroup>
+```bash curl
+curl -X POST https://api.camposcloud.com/v1/apps/create \
+  -H "Authorization: Bearer $CAMPOSCLOUD_TOKEN" \
+  -F "file=@my-app.zip" \
+  -F "appName=my-api" \
+  -F "runtimeEnvironment=nodejs" \
+  -F "mainFile=index.js" \
+  -F "memoryMB=256" \
+  -F "exposedViaWeb=true" \
+  -F "port=3000" \
+  -F "assignedSubdomain=my-api" \
+  -F 'environmentVariables=[{"key":"NODE_ENV","value":"production"}]'
+```
+
+```python Python
+import json
+import os
+import requests
+
+with open("my-app.zip", "rb") as zip_file:
+    response = requests.post(
+        "https://api.camposcloud.com/v1/apps/create",
+        headers={"Authorization": f"Bearer {os.environ['CAMPOSCLOUD_TOKEN']}"},
+        files={"file": zip_file},
+        data={
+            "appName": "my-api",
+            "runtimeEnvironment": "nodejs",
+            "mainFile": "index.js",
+            "memoryMB": 256,
+            "exposedViaWeb": "true",
+            "port": 3000,
+            "assignedSubdomain": "my-api",
+            "environmentVariables": json.dumps([{"key": "NODE_ENV", "value": "production"}]),
+        },
+        timeout=120,
+    )
+response.raise_for_status()
+print(response.json())
+```
+</CodeGroup>
+
+The request is `multipart/form-data`, so `environmentVariables` goes as a **JSON encoded string**, not as separate fields.
+
+<Warning>
+  An environment variable with an empty `value` makes the request fail with `500`. Leave the variable out instead.
+</Warning>
+
+<Note>
+  This endpoint accepts one request every 3 seconds. See the [limits](/api-reference/api-limits).
+</Note>
+
+### From a GitHub repository
+
+To deploy from a repository instead of a zip, leave `file` out and send `installationId`, `repositoryOwner`, `repositoryName`, `repositoryId` and `branch` together (all five or none). The installation must be a GitHub App installation linked to your account in the dashboard.
+
+## 5. Wait until it is ready
+
+A new application starts with `status: "creating"` while the platform prepares it. Read it with [`GET /v1/apps/{appId}`](/api-reference/endpoint/v1/applications/appId) until the status changes:
+
+| `status` | Meaning |
+| --- | --- |
+| `creating` | Being prepared. Wait; actions on it are refused until it finishes. |
+| `active` | Ready. It runs when `currentResourceMetrics.online` is `true`. |
+| `error` | Rebuilding the container failed. Read the [logs](/api-reference/endpoint/v1/applications/logs) and fix the cause. |
+| `suspended` | Turned off by the team. See [why an application stopped](/guides/why-an-application-stopped#suspended-by-the-team). |
+
+Then follow the output of the application with [`GET /v1/apps/{appId}/logs`](/api-reference/endpoint/v1/applications/logs).
+
+## Changing it later
+
+[`POST /v1/apps/{appId}/update`](/api-reference/endpoint/v1/applications/update) changes only the fields you send. Most changes are **not applied right away**: the response has `restartRequired: true`, and the new settings take effect the next time you start or restart the application.
+
+<Steps>
+  <Step title="Update the settings">
+    Change the memory, the startup command, the port or the variables.
+  </Step>
+  <Step title="Apply them">
+    Call [`restart`](/api-reference/endpoint/v1/applications/restart). `restartRequired` goes back to `false`.
+  </Step>
+</Steps>
+
+<Warning>
+  `environmentVariables` replaces the **whole** list. Omit the field to keep the current variables, send `[]` to remove them all.
+</Warning>
+
+To change the code, send a zip with [`POST /v1/apps/{appId}/upload`](/api-reference/endpoint/v1/filesystem/uploadFile), which is extracted into the folder you choose, and restart. Single files can be changed with the [file system endpoints](/api-reference/endpoint/v1/filesystem/getFiles). To save the files, use [`GET /v1/apps/{appId}/download`](/api-reference/endpoint/v1/filesystem/downloadFile).
+
+## Next
+
+<Columns cols={2}>
+  <Card title="Databases" icon="database" href="/guides/databases">
+    Create a database and connect your application to it.
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/guides/troubleshooting">
+    The application is offline or the request failed.
+  </Card>
+</Columns>

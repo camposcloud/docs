@@ -1,0 +1,62 @@
+---
+title: 'Troubleshooting'
+description: 'Find the cause of an application that is offline, a request that failed or a change that did not apply.'
+icon: 'wrench'
+---
+
+Start with the symptom. Each answer links to the page with the details.
+
+## The application is offline
+
+<Steps>
+  <Step title="Read its state">
+    Call [`GET /v1/apps/{appId}`](/api-reference/endpoint/v1/applications/appId) and look at `status`, `currentResourceMetrics.online`, `suspension` and `shutdownNotice`.
+  </Step>
+  <Step title="Match what you found">
+    | You see | It means |
+    | --- | --- |
+    | `status: "suspended"` | The team turned it off. [Read the reason](/guides/why-an-application-stopped#suspended-by-the-team). |
+    | `shutdownNotice` | It sent too many requests to one address. [Fix it and start again](/guides/why-an-application-stopped#too-many-requests). |
+    | `status: "creating"` | Still being prepared. Wait. |
+    | `status: "error"` | Rebuilding the container failed. Read the logs. |
+    | `online: false` and none of the above | It was stopped, or your code ended. Check your plan and the logs. |
+  </Step>
+  <Step title="Check your plan">
+    When the plan ended, applications and databases are turned off. See [plan ended](/guides/why-an-application-stopped#plan-ended).
+  </Step>
+  <Step title="Read the logs">
+    Follow [`GET /v1/apps/{appId}/logs`](/api-reference/endpoint/v1/applications/logs) and start the application again. The last lines before it stopped usually show the error of your code.
+  </Step>
+</Steps>
+
+## A change did not apply
+
+Most changes made with [`update`](/api-reference/endpoint/v1/applications/update) only apply on the next start or restart. Check `restartRequired` in the response: when it is `true`, call [`restart`](/api-reference/endpoint/v1/applications/restart). Databases work the same way for the memory.
+
+## The request failed
+
+Use the HTTP status, not the message, to decide what to do.
+
+| Status | Common causes | What to do |
+| --- | --- | --- |
+| `400` | A missing field, a field that is not documented, an invalid ID, or an action on an application that is not `active`. | Compare your body with the endpoint page. Applications `creating`, `suspended` or in `error` refuse actions. |
+| `401` | The API Key is missing, malformed or was replaced by a newer one. | See [authentication errors](/api-reference/authentication#authentication-errors). |
+| `403` | The owner has no active plan, the account is suspended, or you lack a team permission. | Check the plan and the [permission](/api-reference/introduction#teams-and-permissions) the endpoint lists. |
+| `404` | The resource does not exist, or you cannot access it. | Check the ID and that the application belongs to you or to your team. |
+| `429` | A [rate limit](/api-reference/api-limits) was exceeded. | Wait the seconds in `Retry-After`. |
+| `500` | Some predictable cases end here, such as starting an application that is already running. | See the notes on the endpoint page. |
+| `503` | No node is available to host a new application. | Try again in a few minutes. |
+
+<Tip>
+  Before starting an application, check `currentResourceMetrics.online`. Starting one that is already running returns `500`.
+</Tip>
+
+## The application cannot reach a service
+
+If it works for a while and then stops, you may be hitting the limit of requests to the same address. See [too many requests](/guides/why-an-application-stopped#too-many-requests).
+
+To reach your database, use the `host` and `port` in `connection`, and the password you stored. See [databases](/guides/databases#connect-your-application).
+
+## Still stuck
+
+Ask on [Discord](https://discord.gg/camposcloud). Tell us the application name, what you called and the status you got, and never send your API Key or the password of a database.

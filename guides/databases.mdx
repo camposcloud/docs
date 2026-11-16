@@ -1,0 +1,84 @@
+---
+title: 'Databases'
+description: 'Create a MySQL, PostgreSQL, MongoDB or Redis database and connect your application to it.'
+icon: 'database'
+---
+
+CamposCloud runs **MySQL**, **PostgreSQL**, **MongoDB** and **Redis** databases. Each one is its own instance with its own memory, which is taken from the same plan as your applications. Every field is described in [`POST /v1/databases/create`](/api-reference/endpoint/v1/databases/create).
+
+## What each type needs
+
+| Type | `username` | `database` | `password` |
+| --- | --- | --- | --- |
+| `mysql` | Required | Required | Required |
+| `postgresql` | Required | Required | Required |
+| `mongodb` | Required | Not allowed | Required |
+| `redis` | Not allowed | Not allowed | Required |
+
+- `username`: 3 to 32 letters, numbers or `_`, starting with a letter. Names reserved by the database, such as `root` or `admin`, are refused.
+- `database`: up to 63 letters, numbers or `_`, starting with a letter.
+- `memoryMB`: a JSON **number** (not a string), at least 512 MB by default, and it must fit in the memory left on your plan.
+- `name`: letters, numbers, spaces, `_`, `.` and `-`, starting with a letter or a number.
+
+<Warning>
+  The password is **never returned** by the API. Store it when you create the database or when you change it.
+</Warning>
+
+## Create it
+
+```bash
+curl -X POST https://api.camposcloud.com/v1/databases/create \
+  -H "Authorization: Bearer $CAMPOSCLOUD_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-database",
+    "type": "postgresql",
+    "memoryMB": 512,
+    "username": "app_user",
+    "database": "app",
+    "password": "A_STRONG_PASSWORD"
+  }'
+```
+
+<Note>
+  Creating, changing and deleting databases share one limit of 1 request every 3 seconds. Starting, stopping and restarting share another, of 10 requests per minute. See the [limits](/api-reference/api-limits).
+</Note>
+
+## Wait until it is ready
+
+The database starts as `creating`. Read it with [`GET /v1/databases/{databaseId}`](/api-reference/endpoint/v1/databases/databaseId) until it is `active`; only then does `connection` hold the address to use.
+
+| `status` | Meaning |
+| --- | --- |
+| `creating` | Right after creation. Wait. |
+| `active` | Ready to connect. |
+| `rebuilding` | The container is being rebuilt. Wait. |
+| `error` | The last rebuild failed. Contact support on [Discord](https://discord.gg/camposcloud). |
+
+## Connect your application
+
+`connection` has the `host` and `port` to use, plus the `username` and the `database`. With the password you stored, the connection string is:
+
+| Type | Connection string |
+| --- | --- |
+| `postgresql` | `postgresql://<username>:<password>@<host>:<port>/<database>` |
+| `mysql` | `mysql://<username>:<password>@<host>:<port>/<database>` |
+| `mongodb` | `mongodb://<username>:<password>@<host>:<port>/?authSource=admin` |
+| `redis` | `redis://default:<password>@<host>:<port>` |
+
+Put the string in an [environment variable](/guides/deploying-an-application#changing-it-later) of the application instead of in the code, and restart the application to apply it.
+
+<Danger type="alert">
+  A password with characters such as `@`, `:` or `/` breaks the connection string unless it is URL encoded. Prefer a long password made of letters and numbers.
+</Danger>
+
+## Changing it
+
+- **Name or memory:** [`PUT /v1/databases/{databaseId}`](/api-reference/endpoint/v1/databases/update). A memory change only applies the next time the database is started, stopped or restarted, and `restartRequired` is `true` until then.
+- **Password:** [`POST /v1/databases/{databaseId}/update-credentials`](/api-reference/endpoint/v1/databases/updateCredentials). Applications that use the old password stop connecting until you update them.
+- **Power:** [`start`](/api-reference/endpoint/v1/databases/start), [`stop`](/api-reference/endpoint/v1/databases/stop) and [`restart`](/api-reference/endpoint/v1/databases/restart).
+- **Delete:** [`DELETE /v1/databases/{databaseId}`](/api-reference/endpoint/v1/databases/delete) removes the database and its data. There is no way to undo it.
+
+<Warning>
+  When your [plan ends](/guides/why-an-application-stopped#plan-ended), databases are turned off together with your applications and are deleted if the plan is not renewed.
+</Warning>

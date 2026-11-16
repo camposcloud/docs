@@ -21,9 +21,17 @@
             ]
           },
           {
-            "group": "Platform",
+            "group": "Build",
             "pages": [
-              "guides/why-an-application-stopped"
+              "guides/deploying-an-application",
+              "guides/databases"
+            ]
+          },
+          {
+            "group": "Operate",
+            "pages": [
+              "guides/why-an-application-stopped",
+              "guides/troubleshooting"
             ]
           }
         ]

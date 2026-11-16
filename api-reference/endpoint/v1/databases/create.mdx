@@ -12,6 +12,10 @@ openapi: 'POST /v1/databases/create'
   The password of a database is never returned by the API. Store it when you create the database or change its password.
 </Note>
 
+<Tip>
+  See the [databases guide](/guides/databases) for what each type needs and how to connect.
+</Tip>
+
 ## Connecting
 
 Use `connection.host` and `connection.port` from the response of `GET /v1/databases/{databaseId}` once the status is `active`:
