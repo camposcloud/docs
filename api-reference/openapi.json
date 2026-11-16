@@ -4357,6 +4357,56 @@
               "error"
             ]
           },
+          "suspension": {
+            "type": "object",
+            "description": "Present while `status` is `suspended`: the CamposCloud team turned the application off. A suspended application cannot be started or changed, but its files can still be listed and downloaded. See [Why an application stopped](/guides/why-an-application-stopped).",
+            "properties": {
+              "active": {
+                "type": "boolean",
+                "description": "`true` while the suspension lasts.",
+                "example": true
+              },
+              "reason": {
+                "type": "string",
+                "description": "The reason given by the team, the same one shown in the dashboard.",
+                "example": "Phishing page reported by a third party."
+              },
+              "suspendedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the application was suspended."
+              }
+            }
+          },
+          "shutdownNotice": {
+            "type": "object",
+            "description": "Present when the platform turned the application off by itself because it sent too many requests. It is removed when the application is started or restarted again. See [Why an application stopped](/guides/why-an-application-stopped).",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "description": "Why it was turned off. Today only `request_limit`.",
+                "example": "request_limit",
+                "enum": [
+                  "request_limit"
+                ]
+              },
+              "limitPerMinute": {
+                "type": "integer",
+                "description": "How many requests per minute, to the same address, the application may send.",
+                "example": 1000
+              },
+              "domain": {
+                "type": "string",
+                "description": "The address the application was calling when it went over the limit.",
+                "example": "api.example.com"
+              },
+              "stoppedAt": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the application was turned off."
+              }
+            }
+          },
           "environmentVariables": {
             "type": "array",
             "description": "Environment variables of the application.",

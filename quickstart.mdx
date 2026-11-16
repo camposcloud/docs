@@ -1,0 +1,104 @@
+---
+title: 'Quickstart'
+description: 'Make your first request to the CamposCloud API and control an application in a few minutes.'
+icon: 'rocket'
+---
+
+<Steps>
+  <Step title="Generate your API Key">
+    In the [Dashboard](https://camposcloud.com/dashboard/applications), open "Your Account", go to **Developer** and click **Generate New API Key**. Copy it right away: you cannot see it again. See [Authentication](/api-reference/authentication).
+
+    ```bash
+    export CAMPOSCLOUD_TOKEN="YOUR_API_KEY_HERE"
+    ```
+  </Step>
+
+  <Step title="Check that it works">
+    [`GET /v1/users/@me`](/api-reference/endpoint/v1/users/@me) returns your account. A `401` means the key is wrong, see [Authentication errors](/api-reference/authentication#authentication-errors).
+
+    ```bash
+    curl https://api.camposcloud.com/v1/users/@me \
+      -H "Authorization: Bearer $CAMPOSCLOUD_TOKEN"
+    ```
+  </Step>
+
+  <Step title="List your applications">
+    Each application has an `_id`, which you use in the other endpoints, and `currentResourceMetrics.online`, which tells if it is running. See [`GET /v1/apps`](/api-reference/endpoint/v1/applications/list).
+
+    ```bash
+    curl https://api.camposcloud.com/v1/apps \
+      -H "Authorization: Bearer $CAMPOSCLOUD_TOKEN"
+    ```
+  </Step>
+
+  <Step title="Start, stop or restart one">
+    Use the `_id` of the application. Starting one that is already running returns `500`, so check `online` first.
+
+    ```bash
+    curl -X POST https://api.camposcloud.com/v1/apps/APP_ID/start \
+      -H "Authorization: Bearer $CAMPOSCLOUD_TOKEN"
+    ```
+
+    The same works for [`stop`](/api-reference/endpoint/v1/applications/stop) and [`restart`](/api-reference/endpoint/v1/applications/restart).
+  </Step>
+
+  <Step title="Follow its logs">
+    [`GET /v1/apps/{appId}/logs`](/api-reference/endpoint/v1/applications/logs) streams the console of the application while it runs.
+  </Step>
+</Steps>
+
+## The same thing in code
+
+<CodeGroup>
+```typescript JavaScript
+import CamposCloudSDK from "@camposcloud/sdk";
+
+const api = new CamposCloudSDK({ apiToken: process.env.CAMPOSCLOUD_TOKEN! });
+
+const { applications } = await api.getApplications();
+for (const app of applications) {
+  console.log(app._id, app.name, app.currentResourceMetrics?.online ? "online" : "offline");
+}
+```
+
+```python Python
+import os
+import requests
+
+response = requests.get(
+    "https://api.camposcloud.com/v1/apps",
+    headers={"Authorization": f"Bearer {os.environ['CAMPOSCLOUD_TOKEN']}"},
+    timeout=30,
+)
+response.raise_for_status()
+
+for app in response.json()["applications"]:
+    online = app.get("currentResourceMetrics", {}).get("online")
+    print(app["_id"], app["name"], "online" if online else "offline")
+```
+</CodeGroup>
+
+## When something does not work
+
+<AccordionGroup>
+  <Accordion title="The application is offline and I did not stop it">
+    Read [Why an application stopped](/guides/why-an-application-stopped). The cause is in the `shutdownNotice` and `suspension` fields of the application, and in the message the dashboard shows when you open it.
+  </Accordion>
+  <Accordion title="I get 429">
+    You went over a [rate limit](/api-reference/api-limits). Wait the number of seconds in the `Retry-After` header.
+  </Accordion>
+  <Accordion title="I get 403 when starting an application">
+    The owner of the application does not have an active plan, or you do not have the team permission the endpoint needs. See [Teams and permissions](/api-reference/introduction#teams-and-permissions).
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<Columns cols={2}>
+  <Card title="API reference" icon="code" href="/api-reference/introduction">
+    Base URL, errors, pagination and every endpoint.
+  </Card>
+  <Card title="JavaScript SDK" icon="js" href="/sdk/javascript/getting-started">
+    The same API as methods for Node.js.
+  </Card>
+</Columns>

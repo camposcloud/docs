@@ -1,0 +1,77 @@
+---
+title: 'Why an application stopped'
+description: 'The reasons CamposCloud turns an application off, how to tell them apart and what to do in each case.'
+icon: 'power-off'
+---
+
+An application that is offline is almost always one of four cases. The dashboard tells you which one with a message when you open the application, and the API exposes the same information, so you do not need to open a support ticket to find out.
+
+| What you see | Reason | What to do |
+| --- | --- | --- |
+| `shutdownNotice` in the application | It sent too many requests to the same address | [Fix the cause and start it again](#too-many-requests) |
+| `status` is `suspended` | The CamposCloud team suspended it | [Read the reason and contact support](#suspended-by-the-team) |
+| Your plan is past its end date | The plan ended and the grace period started | [Renew the plan](#plan-ended) |
+| None of the above | You, a team member or your own code stopped it | Start it again, and check the [logs](/api-reference/endpoint/v1/applications/logs) |
+
+## Too many requests
+
+To protect the servers and the services your application calls, CamposCloud limits how many requests an application sends **to the same address**. The count is per application and per destination, and it restarts every minute.
+
+- **Limit:** 1000 requests per minute to the same address.
+- **When it is exceeded:** the application is turned off right away, without waiting for the current request.
+- **What you see:** a message in the dashboard when you open the application (once per incident, and as a banner after that), and a `shutdownNotice` in the API:
+
+```json
+{
+  "status": "active",
+  "shutdownNotice": {
+    "kind": "request_limit",
+    "limitPerMinute": 1000,
+    "domain": "api.example.com",
+    "stoppedAt": "2026-11-16T14:03:21.000Z"
+  }
+}
+```
+
+`domain` is the address the application was calling. Start by looking at the code that talks to it.
+
+The usual causes are:
+
+- a loop with no pause between calls;
+- a bot repeating the same call over and over;
+- a reconnection that retries immediately instead of waiting longer after each failure.
+
+Fix it, then start the application again from the dashboard or with [`POST /v1/apps/{appId}/start`](/api-reference/endpoint/v1/applications/start). Starting it removes the notice.
+
+<Tip>
+  When you retry a failed call, wait longer after every attempt (1 s, 2 s, 4 s...) and stop after a few tries. This alone prevents most cases.
+</Tip>
+
+<Note>
+  Hitting this limit does not delete anything. If it happens again with no change on your side, contact support on [Discord](https://discord.gg/camposcloud) and tell us the application name and the `domain`.
+</Note>
+
+## Suspended by the team
+
+CamposCloud suspends an account or an application when it breaks the terms of use. A suspension is always done by a person on the team, who writes the reason.
+
+- In the API, the application has `status: "suspended"` and a `suspension` object with the `reason`.
+- In the dashboard, the account or application shows a message with the same reason.
+- A suspended application **cannot be started or changed**, and starting it returns an error. You can still list and download its files, and delete the application.
+- When the whole account is suspended, every application and database of the account is turned off.
+
+To lift a suspension, contact support on [Discord](https://discord.gg/camposcloud) with the reason shown in the dashboard.
+
+## Plan ended
+
+When your plan reaches its end date, the account enters a **grace period of 48 hours**. In that time:
+
+- your applications and databases are turned off;
+- you can still renew the plan, and nothing has been deleted yet;
+- if the plan is not renewed by the end of the period, applications and databases are **deleted**.
+
+The dashboard warns you in the last 3 days of the plan, and again during the grace period, with the time left. After renewing, start your applications again.
+
+<Warning>
+  Starting an application while the plan is not active returns `403`.
+</Warning>

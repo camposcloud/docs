@@ -1,3 +1,65 @@
 ---
-description: "Coming soon: This section will provide detailed information on how to get started with the CamposCloud SDK, including installation instructions and usage examples."
+title: 'Getting started'
+description: 'There is no official Python SDK yet. Meanwhile, the API works with any HTTP client.'
+icon: 'python'
 ---
+
+<Note>
+  An official Python SDK is **coming soon**. Until then, use the [API](/api-reference/introduction) directly. It is plain JSON over HTTPS, so any HTTP client works.
+</Note>
+
+## Using the API from Python
+
+Install [`requests`](https://pypi.org/project/requests/) and send your API Key as a Bearer token. See [Authentication](/api-reference/authentication) to generate one.
+
+```bash
+pip install requests
+```
+
+```python
+import os
+import requests
+
+BASE_URL = "https://api.camposcloud.com/v1"
+session = requests.Session()
+session.headers["Authorization"] = f"Bearer {os.environ['CAMPOSCLOUD_TOKEN']}"
+
+
+def request(method: str, path: str, **kwargs):
+    response = session.request(method, f"{BASE_URL}{path}", timeout=30, **kwargs)
+    response.raise_for_status()
+    return response.json()
+
+
+me = request("GET", "/users/@me")
+print(f"Hello {me['name']}")
+
+for app in request("GET", "/apps")["applications"]:
+    online = app.get("currentResourceMetrics", {}).get("online")
+    print(app["_id"], app["name"], "online" if online else "offline")
+```
+
+<Danger type="alert">
+  Dont put your API Key directly in your code. Load it from an environment variable.
+</Danger>
+
+## Handling errors
+
+Errors come with the matching HTTP status and a JSON body with an `error` field. Use the status in your code, not the message. `raise_for_status()` turns `4xx` and `5xx` into an exception:
+
+```python
+try:
+    request("POST", "/apps/APP_ID/start")
+except requests.HTTPError as error:
+    if error.response.status_code == 429:
+        wait = int(error.response.headers.get("Retry-After", "1"))
+        print(f"Rate limited, try again in {wait}s")
+    else:
+        print(error.response.json().get("error"))
+```
+
+See [errors](/api-reference/introduction#errors) and the [rate limits](/api-reference/api-limits).
+
+<Card title="API reference" icon="code" href="/api-reference/introduction">
+  Every endpoint, with its parameters and responses.
+</Card>
