@@ -1,0 +1,189 @@
+---
+title: 'Recipes'
+description: 'Ready-made solutions for common tasks with the JavaScript SDK, including the ones the SDK alone cannot do.'
+icon: 'book-open'
+---
+
+Each recipe uses only what the SDK and the API really do. Where the SDK is not enough, the recipe calls the API directly and says so.
+
+All of them assume this setup:
+
+```typescript
+import CamposCloudSDK from "@camposcloud/sdk";
+
+const api = new CamposCloudSDK({ apiToken: process.env.CAMPOSCLOUD_TOKEN! });
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+```
+
+## Start an application only when it is off
+
+`startApplication` throws a `500` when the application is already running, so check first.
+
+```typescript
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+
+if (!app.data.currentResourceMetrics.online) {
+    await app.start();
+}
+```
+
+## Create an application and wait until it is ready
+
+A new application is `creating` for a while, and actions on it are refused until it is `active`. Poll with `getApplication`, and keep the pause longer than the 3 seconds the API needs between requests.
+
+```typescript
+import fs from "fs";
+
+const created = await api.createApplication({
+    appName: "My App",
+    file: await fs.promises.readFile("./my-app.zip"),
+    mainFile: "index.js",
+    memoryMB: 256,
+    runtimeEnvironment: "nodejs",
+});
+
+let app = created;
+for (let attempt = 0; attempt < 40 && app.data.status === "creating"; attempt++) {
+    await sleep(5000);
+    app = await api.getApplication({ appId: created.data._id });
+}
+
+if (app.data.status !== "active") {
+    throw new Error(`The application is ${app.data.status}`);
+}
+```
+
+<Note>
+  The `data` of an `Application` is never refreshed, so call `getApplication` again on every attempt, as above.
+</Note>
+
+## Change one setting and apply it
+
+`updateApplication` always needs `appName`, `memoryMB`, `runtimeEnvironment` and, by its type, `startupCommand`. Read the current values from `data` and send them back with the one you want to change.
+
+```typescript
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+const { name, allocatedMemoryMB, runtimeEnvironment, startupCommand } = app.data;
+
+const updated = await app.update({
+    appName: name,
+    memoryMB: allocatedMemoryMB * 2, // the only change
+    runtimeEnvironment: runtimeEnvironment as "nodejs" | "python",
+    startupCommand,
+});
+
+if (updated.restartRequired) {
+    await app.restart();
+}
+```
+
+<Warning>
+  `environmentVariables` replaces the whole list. Leave it out to keep the current variables.
+</Warning>
+
+## Deploy a new version of the code
+
+Zip your project, send it to the root of the application and restart. Always pass `path`.
+
+```typescript
+import fs from "fs";
+
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+
+await app.uploadFile({ file: await fs.promises.readFile("./release.zip"), path: "/" });
+await app.restart();
+```
+
+Files with the same name are overwritten. If the application is stopped, use `start` instead of `restart`.
+
+## Save a copy before you change something
+
+```typescript
+import fs from "fs";
+
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+const zip = await app.downloadFile(); // the whole application, as a zip
+
+await fs.promises.writeFile(`./backup-${Date.now()}.zip`, zip);
+```
+
+The archive leaves out `node_modules`, `.npm`, `.git`, `.cache` and `.bun`. The API accepts 20 downloads per minute.
+
+## List every application
+
+`getApplications` returns only the first 10 personal applications. To go through all of them, call the API with the `page` and `limit` parameters:
+
+```typescript
+import axios from "axios";
+
+const http = axios.create({
+    baseURL: "https://api.camposcloud.com/v1",
+    headers: { Authorization: `Bearer ${process.env.CAMPOSCLOUD_TOKEN}` },
+});
+
+const everyApplication = [];
+for (let page = 1; ; page++) {
+    const { data } = await http.get("/apps", { params: { page, limit: 10 } });
+    everyApplication.push(...data.applications);
+    if (!data.pagination.hasNextPage) break;
+}
+```
+
+Add `team: "YOUR_TEAM_ID"` to `params` to list the applications of a team. `axios` is already installed with the SDK.
+
+## Find out why an application is offline
+
+The SDK types do not include the `suspension` and `shutdownNotice` fields, but the API returns them, so read them with a cast:
+
+```typescript
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+const data = app.data as typeof app.data & {
+    suspension?: { active: boolean; reason: string; suspendedAt: string };
+    shutdownNotice?: { kind: "request_limit"; limitPerMinute?: number; domain?: string; stoppedAt: string };
+};
+
+if (data.status === "suspended") {
+    console.log(`Suspended by the team: ${data.suspension?.reason}`);
+} else if (data.shutdownNotice) {
+    console.log(`Too many requests to ${data.shutdownNotice.domain}, turned off at ${data.shutdownNotice.stoppedAt}`);
+} else if (!data.currentResourceMetrics.online) {
+    console.log("Stopped, or the code ended. Read the logs.");
+}
+```
+
+See [why an application stopped](/guides/why-an-application-stopped) for what to do in each case.
+
+## Retry when the API answers 429
+
+The SDK never retries. A `429` means the request was refused, so waiting and sending it again is safe.
+
+```typescript
+async function withRetry<T>(run: () => Promise<T>, attempts = 3): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await run();
+        } catch (error: any) {
+            if (error.response?.status !== 429 || attempt >= attempts) throw error;
+            const seconds = Number(error.response.headers["retry-after"] ?? 1);
+            await sleep(seconds * 1000);
+        }
+    }
+}
+
+const app = await withRetry(() => api.getApplication({ appId: "YOUR_APP_ID" }));
+```
+
+## Work on many applications without hitting the limits
+
+Creating, updating and uploading accept one request every 3 seconds each. Do them one at a time, with a pause:
+
+```typescript
+const appIds = ["APP_ID_1", "APP_ID_2"];
+
+for (const appId of appIds) {
+    await withRetry(() => api.restartApplication({ appId }));
+    await sleep(3500);
+}
+```
+
+Start, stop and restart of applications are only part of the general limit (180 requests per minute), but keep the pause when you change many at once. See [Limits](/api-reference/api-limits).

@@ -132,13 +132,15 @@
               "sdk/javascript/client",
               "sdk/javascript/application",
               "sdk/javascript/types",
+              "sdk/javascript/recipes",
               "sdk/javascript/errors-and-pitfalls"
             ]
           },
           {
             "group": "Python",
             "pages": [
-              "sdk/python/getting-started"
+              "sdk/python/getting-started",
+              "sdk/python/client"
             ]
           }
         ]

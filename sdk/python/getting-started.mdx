@@ -60,6 +60,11 @@ except requests.HTTPError as error:
 
 See [errors](/api-reference/introduction#errors) and the [rate limits](/api-reference/api-limits).
 
-<Card title="API reference" icon="code" href="/api-reference/introduction">
-  Every endpoint, with its parameters and responses.
-</Card>
+<Columns cols={2}>
+  <Card title="Client" icon="code" href="/sdk/python/client">
+    A ready-to-copy client with one method per endpoint, pagination, databases and retry on `429`.
+  </Card>
+  <Card title="API reference" icon="book" href="/api-reference/introduction">
+    Every endpoint, with its parameters and responses.
+  </Card>
+</Columns>

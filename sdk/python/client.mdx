@@ -1,0 +1,295 @@
+---
+title: 'Client'
+description: 'A small Python client for the CamposCloud API that you copy into your project, with every method explained.'
+icon: 'code'
+---
+
+There is no official Python package yet, so this page gives you a client to **copy into your project** (for example as `camposcloud.py`). It is plain [`requests`](https://pypi.org/project/requests/), one method per endpoint, and it covers more than the [JavaScript SDK](/sdk/javascript/client): pagination, databases and your own error class.
+
+```bash
+pip install requests
+```
+
+## The client
+
+```python camposcloud.py
+import json
+import time
+from typing import Any, Iterator, Optional
+
+import requests
+
+
+class CamposCloudError(Exception):
+    """The API answered with an error status."""
+
+    def __init__(self, status: int, message: str):
+        super().__init__(f"{status}: {message}")
+        self.status = status
+        self.message = message
+
+
+class CamposCloud:
+    def __init__(
+        self,
+        api_token: str,
+        base_url: str = "https://api.camposcloud.com/v1",
+        timeout: float = 30,
+        max_retries: int = 3,
+    ):
+        if not api_token:
+            raise ValueError("api_token is required")
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.session = requests.Session()
+        self.session.headers["Authorization"] = f"Bearer {api_token}"
+
+    def _request(self, method: str, path: str, *, binary: bool = False, **kwargs: Any) -> Any:
+        for attempt in range(self.max_retries + 1):
+            response = self.session.request(method, f"{self.base_url}{path}", timeout=self.timeout, **kwargs)
+
+            # A 429 means the request was refused, so it is safe to send it again after waiting.
+            if response.status_code == 429 and attempt < self.max_retries:
+                time.sleep(float(response.headers.get("Retry-After", "1")))
+                if "files" in kwargs:
+                    for _, value in kwargs["files"].items():
+                        value.seek(0)
+                continue
+
+            if not response.ok:
+                try:
+                    message = response.json().get("error", response.text)
+                except ValueError:
+                    message = response.text
+                raise CamposCloudError(response.status_code, message)
+
+            return response.content if binary else response.json()
+
+    # Account
+
+    def get_me(self) -> dict:
+        return self._request("GET", "/users/@me")["user"]
+
+    # Applications
+
+    def list_apps(self, page: int = 1, limit: int = 10, team: Optional[str] = None, name: Optional[str] = None) -> dict:
+        params = {"page": page, "limit": limit, "team": team, "name": name}
+        return self._request("GET", "/apps", params={k: v for k, v in params.items() if v is not None})
+
+    def iter_apps(self, **filters: Any) -> Iterator[dict]:
+        """Every application, page after page."""
+        page = 1
+        while True:
+            result = self.list_apps(page=page, **filters)
+            yield from result["applications"]
+            if not result["pagination"]["hasNextPage"]:
+                return
+            page += 1
+
+    def get_app(self, app_id: str) -> dict:
+        return self._request("GET", f"/apps/{app_id}")
+
+    def create_app(self, zip_path: str, app_name: str, runtime: str, memory_mb: int, **fields: Any) -> dict:
+        """Extra fields use the names of the API: mainFile, startupCommand, exposedViaWeb, port,
+        assignedSubdomain, autoRestartEnabled, team and environmentVariables (a list of {key, value})."""
+        data = {"appName": app_name, "runtimeEnvironment": runtime, "memoryMB": memory_mb}
+        for key, value in fields.items():
+            if value is None:
+                continue
+            if key == "environmentVariables":
+                data[key] = json.dumps(value)
+            elif isinstance(value, bool):
+                data[key] = "true" if value else "false"
+            else:
+                data[key] = value
+
+        with open(zip_path, "rb") as zip_file:
+            return self._request("POST", "/apps/create", files={"file": zip_file}, data=data)
+
+    def update_app(self, app_id: str, **fields: Any) -> dict:
+        """Only the fields you pass are changed. Check `restartRequired` in the result."""
+        return self._request("POST", f"/apps/{app_id}/update", json=fields)
+
+    def start_app(self, app_id: str) -> dict:
+        return self._request("POST", f"/apps/{app_id}/start")
+
+    def stop_app(self, app_id: str) -> dict:
+        return self._request("POST", f"/apps/{app_id}/stop")
+
+    def restart_app(self, app_id: str) -> dict:
+        return self._request("POST", f"/apps/{app_id}/restart")
+
+    def delete_app(self, app_id: str) -> dict:
+        return self._request("DELETE", f"/apps/{app_id}/delete")
+
+    # Files
+
+    def upload(self, app_id: str, zip_path: str, path: str = "/") -> dict:
+        with open(zip_path, "rb") as zip_file:
+            return self._request("POST", f"/apps/{app_id}/upload", params={"path": path}, files={"file": zip_file})
+
+    def download(self, app_id: str, path: Optional[str] = None) -> bytes:
+        """A zip archive, even when `path` is a single file."""
+        params = {"path": path} if path else None
+        return self._request("GET", f"/apps/{app_id}/download", params=params, binary=True)
+
+    # Teams
+
+    def list_teams(self) -> list:
+        return self._request("GET", "/teams")
+
+    def get_team(self, team_id: str) -> dict:
+        return self._request("GET", f"/teams/{team_id}")
+
+    # Databases
+
+    def list_databases(self, page: int = 1, limit: int = 10) -> dict:
+        return self._request("GET", "/databases", params={"page": page, "limit": limit})
+
+    def get_database(self, database_id: str) -> dict:
+        return self._request("GET", f"/databases/{database_id}")
+
+    def create_database(self, **fields: Any) -> dict:
+        return self._request("POST", "/databases/create", json=fields)
+
+    def start_database(self, database_id: str) -> dict:
+        return self._request("POST", f"/databases/{database_id}/start")
+
+    def stop_database(self, database_id: str) -> dict:
+        return self._request("POST", f"/databases/{database_id}/stop")
+
+    def restart_database(self, database_id: str) -> dict:
+        return self._request("POST", f"/databases/{database_id}/restart")
+
+    def delete_database(self, database_id: str) -> dict:
+        return self._request("DELETE", f"/databases/{database_id}")
+```
+
+<Note>
+  The code was tested against a local stand-in server that checks the method, path, headers, query string, multipart body, error handling and the retry on `429`. It has not been published as a package, so read it before you depend on it.
+</Note>
+
+## Using it
+
+```python
+import os
+from camposcloud import CamposCloud, CamposCloudError
+
+api = CamposCloud(os.environ["CAMPOSCLOUD_TOKEN"])
+
+me = api.get_me()
+print(f"Hello {me['name']}")
+```
+
+<Danger type="alert">
+  Dont put your API Key directly in your code. Load it from an environment variable.
+</Danger>
+
+### Applications
+
+```python
+# Every application, page after page (the JavaScript SDK only returns the first 10)
+for app in api.iter_apps():
+    online = app.get("currentResourceMetrics", {}).get("online")
+    print(app["_id"], app["name"], "online" if online else "offline")
+
+# Only the ones of a team
+for app in api.iter_apps(team="YOUR_TEAM_ID"):
+    print(app["name"])
+
+# Create from a zip file
+app = api.create_app(
+    "my-app.zip",
+    app_name="my-api",
+    runtime="nodejs",
+    memory_mb=256,
+    mainFile="index.js",
+    exposedViaWeb=True,
+    port=3000,
+    assignedSubdomain="my-api",
+    environmentVariables=[{"key": "NODE_ENV", "value": "production"}],
+)
+
+# Change one setting: only what you pass is changed
+updated = api.update_app(app["_id"], memoryMB=512)
+if updated.get("restartRequired"):
+    api.restart_app(app["_id"])
+```
+
+The extra arguments of `create_app` and `update_app` are the fields of [`POST /v1/apps/create`](/api-reference/endpoint/v1/applications/create) and [`POST /v1/apps/{appId}/update`](/api-reference/endpoint/v1/applications/update), with the names the API uses. A value of `None` is left out of the request.
+
+### Files
+
+```python
+# Send a zip: it is extracted into the folder you choose
+api.upload(app["_id"], "update.zip", path="/")
+api.restart_app(app["_id"])
+
+# Download a folder, or the whole application, as a zip
+data = api.download(app["_id"], path="/src")
+with open("src-backup.zip", "wb") as backup:
+    backup.write(data)
+```
+
+The path is sent URL encoded, so spaces and characters such as `&` are safe. `download` always returns a **zip**, even for a single file.
+
+### Databases
+
+```python
+database = api.create_database(
+    name="my-database",
+    type="postgresql",
+    memoryMB=512,
+    username="app_user",
+    database="app",
+    password="A_STRONG_PASSWORD",
+)
+
+# Wait until it is ready, then read where to connect
+import time
+
+while api.get_database(database["_id"])["status"] != "active":
+    time.sleep(3)
+
+print(api.get_database(database["_id"])["connection"])
+```
+
+See [databases](/guides/databases) for what each type needs. The password is never returned by the API.
+
+## Errors
+
+Every error status raises `CamposCloudError`, with the HTTP `status` and the `message` of the API. Use the status in your code, not the message:
+
+```python
+try:
+    api.start_app("APP_ID")
+except CamposCloudError as error:
+    if error.status == 403:
+        print("No active plan, a suspended account or missing permission")
+    elif error.status == 500:
+        print("Already running? Check currentResourceMetrics.online first")
+    else:
+        raise
+```
+
+A network failure or a timeout raises the exception of `requests` itself (`requests.RequestException`).
+
+### Rate limits
+
+On a `429` the client waits the seconds in the `Retry-After` header and sends the request again, up to `max_retries` times (3 by default) before raising. A request that got `429` was refused, so repeating it is safe. Other errors are never retried.
+
+The limits are described in [Limits](/api-reference/api-limits). The ones you hit first are 1 creation, update or upload every 3 seconds. Space them out in loops.
+
+## Differences from the JavaScript SDK
+
+| | JavaScript SDK | This client |
+| --- | --- | --- |
+| Pagination | First page only | `iter_apps` goes through all pages |
+| Teams of the application list | Not available | `team` filter |
+| Databases | Not available | Yes |
+| Expose to the web | Not possible (no `port`) | `exposedViaWeb`, `port` and `assignedSubdomain` |
+| `path` of files | Not encoded | Encoded |
+| Errors | Axios errors | `CamposCloudError` |
+| Retry on `429` | No | Yes |
+| Maintained by CamposCloud | Yes | No: it is a copy-paste example |
