@@ -17,9 +17,9 @@ Documentação pública da Campos Cloud (docs.camposcloud.com), feita com Mintli
 - O mesmo vale para o SDK (camposcloud-sdk) e as páginas em `sdk/`.
 
 ## Fluxo de trabalho (obrigatório)
-- Toda modificação numa worktree própria:
-  `git fetch origin && git worktree add -b <tipo>/<assunto> .claude/worktrees/<assunto> origin/main`.
-  Nunca editar o checkout principal nem commitar na `main`.
+- Toda modificação direto na pasta do repositório, numa branch própria a partir da `main` atualizada:
+  `git fetch origin && git switch -c <tipo>/<assunto> origin/main`. Assim os servidores de desenvolvimento que já
+  estão rodando mostram a mudança na hora. Não criar worktrees. Nunca commitar na `main`.
 - Um assunto por branch.
 - Antes de subir: `mint broken-links` e uma olhada na prévia.
 - Push da branch → PR para `main` (rascunho enquanto não estiver pronto) → revisão (`/code-review`) → correções. **Quem faz o merge na `main` é o Vitor**; agentes nunca fazem merge, push na `main` nem force-push.
