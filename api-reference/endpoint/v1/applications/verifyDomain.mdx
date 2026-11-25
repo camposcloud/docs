@@ -1,0 +1,21 @@
+---
+title: '/v1/apps/{appId}/custom-domain/verify'
+description: 'This endpoint confirms the pending custom domain of an application.'
+openapi: 'POST /v1/apps/{appId}/custom-domain/verify'
+---
+
+<Warning>
+  This endpoint has a rate limit of 1 request every 3 seconds.
+</Warning>
+
+<Steps>
+  <Step title="Set the domain">
+    Send `assignedCustomDomain` to [`POST /v1/apps/{appId}/update`](/api-reference/endpoint/v1/applications/update). The domain must use Cloudflare nameservers.
+  </Step>
+  <Step title="Publish the TXT record">
+    The application now returns `customDomainTxtName` and `customDomainTxtValue`. Create a TXT record with that name and value in your DNS.
+  </Step>
+  <Step title="Confirm">
+    Call this endpoint. While the record has not propagated yet it answers `400` with `code: "CUSTOM_DOMAIN_TXT_NOT_FOUND"`: wait a few minutes and try again.
+  </Step>
+</Steps>

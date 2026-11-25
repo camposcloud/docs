@@ -9,7 +9,7 @@ openapi: 'POST /v1/apps/{appId}/update'
 </Warning>
 
 <Note>
-  Only the fields you send are changed. Fields that are not listed below (for example `mainFile` or `team`) are rejected with `400`.
+  Only the fields you send are changed. Fields that are not listed below (for example `team`) are rejected with `400`.
 </Note>
 
 <Note>
@@ -21,5 +21,9 @@ openapi: 'POST /v1/apps/{appId}/update'
 </Warning>
 
 <Tip>
-  The `camposcloud.config` file stored with your application is rewritten on every update using **only** the fields present in the request. Send `appName`, `memoryMB`, `runtimeEnvironment` and `startupCommand` together if you want that file to stay complete.
+  `buildCommand` runs after the dependencies are installed and before `startupCommand`; send `""` to remove it. Changing `mainFile` also updates a start command that was the default of the runtime (for example `node index.js`); a start command you wrote stays as it is.
 </Tip>
+
+<Note>
+  A custom domain (`assignedCustomDomain`) is not routed right away. The response brings `customDomainPending`, `customDomainTxtName` and `customDomainTxtValue`: publish that TXT record in your DNS and confirm with [`POST /v1/apps/{appId}/custom-domain/verify`](/api-reference/endpoint/v1/applications/verifyDomain).
+</Note>

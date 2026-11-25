@@ -41,8 +41,19 @@ Every error is returned with the matching HTTP status and a JSON body with a sin
 }
 ```
 
+Many errors also carry a `code`, a stable identifier, and sometimes extra fields with details:
+
+```json
+{
+  "error": "A memória total excede o limite do seu plano.",
+  "code": "PLAN_MEMORY_LIMIT",
+  "requestedMB": 1024,
+  "availableMB": 256
+}
+```
+
 <Note>
-  Error messages are meant for humans and can be in English or in Portuguese depending on the endpoint. Use the HTTP status, not the message, in your code.
+  Error messages are meant for humans and can be in English or in Portuguese depending on the endpoint. In your code, use the HTTP status and, when present, the `code`, never the message.
 </Note>
 
 | Status | Meaning |
@@ -50,7 +61,7 @@ Every error is returned with the matching HTTP status and a JSON body with a sin
 | `400` | The request is invalid: a parameter is missing, has the wrong format or is not allowed. |
 | `401` | The API Key is missing or invalid. |
 | `403` | You are not allowed to perform the action (not the owner, missing team permission or no active plan). |
-| `404` | The resource does not exist, or you do not have access to it. |
+| `404` | The resource does not exist, or it is not yours and you are not in its team. |
 | `429` | A [rate limit](/api-reference/api-limits) was exceeded. |
 | `500` | Unexpected error. Some predictable situations also end here, for example starting an application that is already running or reading a file that does not exist. They are listed in each endpoint. |
 | `503` | No node is available to host a new application. |
@@ -78,7 +89,7 @@ Keep requesting the next page while `hasNextPage` is `true`.
 
 ## Teams and permissions
 
-Applications can belong to a team. The owner of a team can do everything; members can only do what their permissions allow. The permission required by each endpoint is listed in its description.
+Applications and databases can belong to a team. The owner of a team can do everything; members can only do what their permissions allow. The permission required by each endpoint is listed in its description. Teams also have roles (named sets of permissions, returned in `roles`); you can invite someone with a role through `roleId`.
 
 | Permission | Allows |
 | --- | --- |
@@ -94,3 +105,14 @@ Applications can belong to a team. The owner of a team can do everything; member
 | `canDeleteDatabase` | Delete databases of the team. |
 | `canUpdateDatabaseSettings` | Update the settings of databases of the team. |
 | `canChangeStatusDatabase` | Start, stop and restart databases of the team. |
+| `canSeeApplicationLogs` | Read the console (logs) of applications of the team. |
+| `canSeeApplicationEnv` | See the environment variables of applications of the team. |
+| `canEditApplicationEnv` | Change the environment variables of applications of the team. |
+| `canManageApplicationDomains` | Change the subdomain and the custom domain of applications of the team. |
+| `canDeployApplication` | Deploy applications of the team (GitHub deploys). |
+| `canSeeDatabaseCredentials` | See the credentials of databases of the team. |
+| `canManageMembers` | Invite and remove members and change their permissions, like the owner. |
+
+<Warning>
+  Changing the permissions of a member replaces the whole set: a permission that is not sent becomes `false`. Read the current permissions first and send all of them.
+</Warning>

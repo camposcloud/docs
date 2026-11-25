@@ -22,7 +22,11 @@ new CamposCloudSDK({ apiToken }: { apiToken: string })
   Your CamposCloud API Key. See [Authentication](/api-reference/authentication).
 </ParamField>
 
-Throws `Error("API Token is required to initialize CamposCloudSDK.")` when `apiToken` is empty. The base URL is fixed and no request timeout is configured.
+<ParamField path="baseUrl" type="string">
+  From version 1.2.0: another server for the API (for example a local one). Defaults to `https://api.camposcloud.com`.
+</ParamField>
+
+Throws `Error("API Token is required to initialize CamposCloudSDK.")` when `apiToken` is empty. No request timeout is configured.
 
 <Note>
   Methods validate some of their arguments before sending the request and throw a plain `Error` when they are invalid. Errors returned by the API are thrown as Axios errors. See [Errors and pitfalls](/sdk/javascript/errors-and-pitfalls).
@@ -129,12 +133,16 @@ Creates an application from a zip file (`POST /v1/apps/create`) and returns it a
   Memory to allocate, in MB.
 </ParamField>
 
-<ParamField path="runtimeEnvironment" type='"nodejs" | "python"' required>
-  Runtime of the application. The API also accepts `"bun"`, but the SDK type does not include it (see [pitfalls](/sdk/javascript/errors-and-pitfalls#pitfalls)).
+<ParamField path="runtimeEnvironment" type='"nodejs" | "bun" | "python"' required>
+  Runtime of the application. `"bun"` is in the type from version 1.2.0; before it, pass `"bun" as any`.
 </ParamField>
 
 <ParamField path="startupCommand" type="string">
   Custom command used to start the application. When omitted, the API uses the default of the runtime.
+</ParamField>
+
+<ParamField path="buildCommand" type="string">
+  From version 1.2.0: command that builds the application (for example `npm run build`). It runs after the dependencies are installed and before the start command.
 </ParamField>
 
 <ParamField path="autoRestartEnabled" type="boolean">
@@ -205,8 +213,20 @@ Updates the settings of an application (`POST /v1/apps/{appId}/update`).
   Runtime of the application.
 </ParamField>
 
-<ParamField path="startupCommand" type="string" required>
-  Command used to start the application. It is required by the TypeScript type; at runtime it is only sent when it is not empty.
+<ParamField path="startupCommand" type="string">
+  Command used to start the application. It is only sent when it is not empty. (Required by the type before version 1.2.0.)
+</ParamField>
+
+<ParamField path="buildCommand" type="string">
+  From version 1.2.0: command that builds the application before it starts. An empty string removes it; omit it to keep the current one.
+</ParamField>
+
+<ParamField path="mainFile" type="string">
+  From version 1.2.0: the main file, relative to the application root. A start command that was the default of the runtime follows the new file; one you wrote stays. A path with `..` is rejected by the API with the code `MAIN_FILE_INVALID`.
+</ParamField>
+
+<ParamField path="assignedCustomDomain" type="string">
+  From version 1.2.0: a custom domain for an application exposed on the web. It stays pending until you publish its TXT record and call [`verifyCustomDomain`](#verifycustomdomain). An empty string removes it.
 </ParamField>
 
 <ParamField path="autoRestartEnabled" type="boolean">
@@ -250,6 +270,33 @@ if (updated.restartRequired) {
 
 <Warning>
   The API accepts 1 update every 3 seconds.
+</Warning>
+
+### verifyCustomDomain
+
+```typescript
+verifyCustomDomain({ appId }: { appId: string }): Promise<{ verified: boolean }>
+```
+
+From version 1.2.0. Confirms the pending custom domain of an application (`POST /v1/apps/{appId}/custom-domain/verify`). After setting `assignedCustomDomain`, the application brings `customDomainTxtName` and `customDomainTxtValue`: create that TXT record in your DNS, then call this method.
+
+```typescript
+import { getApiError } from "@camposcloud/sdk";
+
+const app = await api.getApplication({ appId: "YOUR_APP_ID" });
+console.log(app.data.customDomainTxtName, app.data.customDomainTxtValue);
+
+try {
+    await app.verifyCustomDomain();
+} catch (error) {
+    if (getApiError(error)?.code === "CUSTOM_DOMAIN_TXT_NOT_FOUND") {
+        // DNS not propagated yet: try again in a few minutes
+    }
+}
+```
+
+<Warning>
+  The API accepts 1 call every 3 seconds.
 </Warning>
 
 ### startApplication
