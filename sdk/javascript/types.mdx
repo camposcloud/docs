@@ -68,6 +68,7 @@ Differences from the API:
 - `teamId` is only a string (or `null`) in the application list and in the result of `createApplication`. In `getApplication`, `updateApplication`, `startApplication`, `stopApplication` and `restartApplication` the API returns the **whole team object** for team applications.
 - `currentResourceMetrics` is not returned when an application is created, so it is `undefined` in the `data` of the instance returned by `createApplication`.
 - `internalPort`, `externalPort` and `assignedSubdomain` can be missing (`undefined`) instead of `null` when the application is not exposed via web.
+- From version 1.2.0 the type also declares `mainFile`, `buildCommand`, `assignedCustomDomain` and, while a custom domain waits for its TXT record, `customDomainPending`, `customDomainTxtName` and `customDomainTxtValue`.
 - `status` can also be `"error"` after a failed rebuild.
 - The API returns more fields than the type declares, such as `mainFile`, `environmentVariables`, `assignedCustomDomain`, `repository`, `githubDeploys` and `currentResourceMetrics.startedAt`. They are present at runtime, but TypeScript does not know about them.
 
@@ -117,10 +118,10 @@ interface UpdateApplicationDataParams {
 
 Differences from the API:
 
-- Every field of the API is optional, but the SDK requires `appName`, `memoryMB` and `runtimeEnvironment` (and the type also requires `startupCommand`).
+- Every field of the API is optional, but the SDK requires `appName`, `memoryMB` and `runtimeEnvironment` (before version 1.2.0 the type also requires `startupCommand`).
 - `teamId` is ignored by the SDK. The API has no field to move an application to another team.
-- `runtimeEnvironment` does not include `"bun"`.
-- There is no `port`, `assignedSubdomain` nor `assignedCustomDomain`.
+- Before version 1.2.0, `runtimeEnvironment` does not include `"bun"`.
+- From version 1.2.0: `buildCommand`, `mainFile` and `assignedCustomDomain`. There is still no `port` nor `assignedSubdomain`.
 
 ## UserData
 
@@ -223,5 +224,5 @@ interface TeamResponseData {
 Differences from the API:
 
 - `applicationsCount` is only returned by `getTeams`. It is `undefined` in the result of `getTeam`.
-- The API also returns the permissions `canManageApplicationBackup`, `canCreateDatabase`, `canDeleteDatabase`, `canUpdateDatabaseSettings` and `canChangeStatusDatabase`.
+- Before version 1.2.0 the type lists 7 permissions, while the API returns all 19 (see [Teams and permissions](/api-reference/introduction#teams-and-permissions)). From 1.2.0 the permissions have their own type, `TeamPermissions`, with every key (`TEAM_PERMISSION_KEYS` lists them), and the team declares `roles` and the `roleId` of members and invites.
 - The API returns more fields than the type declares, such as `databaseInstancesCount` (in `getTeams`), the owner's `currentSubscription` (in `getTeam`) and the `userId`, `invitedAt`, `code` and `subscriptionEndsAt` of each invite.

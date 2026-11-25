@@ -373,7 +373,8 @@
                   "$ref": "#/components/schemas/Error"
                 },
                 "example": {
-                  "error": "\"mainFile\" is not allowed"
+                  "error": "O arquivo principal precisa ser um caminho dentro da aplicação.",
+                  "code": "MAIN_FILE_INVALID"
                 }
               }
             }
@@ -1574,7 +1575,7 @@
         "tags": [
           "Teams"
         ],
-        "description": "Invites a user to a team. Only the owner of the team can do this. The e-mail must belong to an existing CamposCloud account; the user receives an e-mail with a link to accept the invite (invites cannot be accepted through this API). Invites expire after 2 days.",
+        "description": "Invites a user to a team. The owner of the team and members with `canManageMembers` can do this. The e-mail must belong to an existing CamposCloud account; the user receives an e-mail with a link to accept the invite (invites cannot be accepted through this API). Invites expire after 2 days.",
         "parameters": [
           {
             "name": "teamId",
@@ -1606,7 +1607,12 @@
                   },
                   "permissions": {
                     "$ref": "#/components/schemas/TeamPermissionsInput",
-                    "description": "Permissions the user receives when accepting the invite. When omitted, the member has no permissions."
+                    "description": "Permissions the user receives when accepting the invite. Ignored when `roleId` is sent. When both are omitted, the member has no permissions."
+                  },
+                  "roleId": {
+                    "type": "string",
+                    "description": "ID of a role of the team (`roles[]._id`): the user receives its permissions and follows the role. An unknown role is rejected with `400`.",
+                    "example": "000000000000000000000009"
                   }
                 }
               }
@@ -1677,7 +1683,7 @@
         "tags": [
           "Teams"
         ],
-        "description": "Sends the invite e-mail again. Only the owner of the team can do this. An invite can be resent at most once every 5 minutes.",
+        "description": "Sends the invite e-mail again. The owner of the team and members with `canManageMembers` can do this. An invite can be resent at most once every 5 minutes.",
         "parameters": [
           {
             "name": "teamId",
@@ -1784,7 +1790,7 @@
         "tags": [
           "Teams"
         ],
-        "description": "Revokes a pending invite. Only the owner of the team can do this.",
+        "description": "Revokes a pending invite. The owner of the team and members with `canManageMembers` can do this.",
         "parameters": [
           {
             "name": "teamId",
@@ -1881,7 +1887,7 @@
         "tags": [
           "Teams"
         ],
-        "description": "Replaces the permissions of a team member. Only the owner of the team can do this. The whole permission set is replaced: every permission that is not sent is set to `false`.",
+        "description": "Replaces the permissions of a team member. The owner of the team and members with `canManageMembers` can do this. The whole permission set is replaced: every permission that is not sent is set to `false`.",
         "parameters": [
           {
             "name": "teamId",
@@ -1984,7 +1990,7 @@
         "tags": [
           "Teams"
         ],
-        "description": "Removes a member from a team. Only the owner of the team can do this.",
+        "description": "Removes a member from a team. The owner of the team and members with `canManageMembers` can do this.",
         "parameters": [
           {
             "name": "teamId",
@@ -3456,13 +3462,110 @@
           }
         }
       }
+    },
+    "/v1/apps/{appId}/custom-domain/verify": {
+      "post": {
+        "tags": [
+          "Applications"
+        ],
+        "description": "Confirms the pending custom domain of an application. Set the domain with `POST /v1/apps/{appId}/update` (`assignedCustomDomain`), publish the TXT record from `customDomainTxtName` and `customDomainTxtValue` in your DNS, then call this endpoint. Once confirmed, the domain is routed to the application. On team applications it requires `canManageApplicationDomains`.",
+        "parameters": [
+          {
+            "name": "appId",
+            "in": "path",
+            "required": true,
+            "description": "ID of the application",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Domain confirmed and routed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "verified"
+                  ],
+                  "properties": {
+                    "verified": {
+                      "type": "boolean",
+                      "example": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid ID, no pending domain (`CUSTOM_DOMAIN_NO_PENDING`), TXT record not found yet (`CUSTOM_DOMAIN_TXT_NOT_FOUND`) or domain taken meanwhile (`CUSTOM_DOMAIN_IN_USE`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Não encontramos o registro TXT de verificação. Crie o registro e aguarde a propagação do DNS.",
+                  "code": "CUSTOM_DOMAIN_TXT_NOT_FOUND"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "You are not allowed to manage the domains of this application.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "You do not have permission to perform this action on this application."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Application not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Aplicação não encontrada.",
+                  "code": "APPLICATION_NOT_FOUND"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "A rate limit was exceeded. This endpoint accepts 1 request every 3 seconds.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Application update limit reached, please try again later"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
       "Error": {
         "type": "object",
-        "description": "Every error returned by the API has this shape. The message can be in English or in Portuguese depending on the endpoint.",
+        "description": "Every error returned by the API has this shape. `error` is a human readable message (in English or in Portuguese, depending on the endpoint). Many errors also carry `code`, a stable identifier to rely on in your code, and sometimes extra fields with details (for example `requestedMB` and `availableMB` with `PLAN_MEMORY_LIMIT`). Resources you have no relation to answer `404`, not `403`.",
         "required": [
           "error"
         ],
@@ -3471,6 +3574,11 @@
             "type": "string",
             "description": "Human readable description of the error.",
             "example": "Application not found."
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable, machine-readable identifier of the error. Present on many errors; compare against it instead of the message. Examples: `PLAN_MEMORY_LIMIT`, `APPLICATION_NOT_FOUND`, `DATABASE_NOT_FOUND`, `MAIN_FILE_INVALID`, `ENV_DUPLICATE_KEY`, `CUSTOM_DOMAIN_IN_USE`, `CUSTOM_DOMAIN_RESERVED`, `CUSTOM_DOMAIN_NOT_CLOUDFLARE`, `CUSTOM_DOMAIN_NO_PENDING`, `CUSTOM_DOMAIN_TXT_NOT_FOUND`.",
+            "example": "PLAN_MEMORY_LIMIT"
           }
         }
       },
@@ -3751,6 +3859,34 @@
           "canChangeStatusDatabase": {
             "type": "boolean",
             "description": "Start, stop and restart databases of the team."
+          },
+          "canSeeApplicationLogs": {
+            "type": "boolean",
+            "description": "Read the console (logs) of applications of the team."
+          },
+          "canSeeApplicationEnv": {
+            "type": "boolean",
+            "description": "See the environment variables of applications of the team."
+          },
+          "canEditApplicationEnv": {
+            "type": "boolean",
+            "description": "Change the environment variables of applications of the team."
+          },
+          "canManageApplicationDomains": {
+            "type": "boolean",
+            "description": "Change the subdomain and the custom domain of applications of the team."
+          },
+          "canDeployApplication": {
+            "type": "boolean",
+            "description": "Deploy applications of the team (GitHub deploys)."
+          },
+          "canSeeDatabaseCredentials": {
+            "type": "boolean",
+            "description": "See the credentials (user and password) of databases of the team."
+          },
+          "canManageMembers": {
+            "type": "boolean",
+            "description": "Invite and remove members, revoke and resend invites and change the permissions of members, like the owner."
           }
         },
         "example": {
@@ -3765,12 +3901,19 @@
           "canCreateDatabase": false,
           "canDeleteDatabase": false,
           "canUpdateDatabaseSettings": false,
-          "canChangeStatusDatabase": false
+          "canChangeStatusDatabase": false,
+          "canSeeApplicationLogs": true,
+          "canSeeApplicationEnv": true,
+          "canEditApplicationEnv": false,
+          "canManageApplicationDomains": false,
+          "canDeployApplication": false,
+          "canSeeDatabaseCredentials": false,
+          "canManageMembers": false
         }
       },
       "TeamPermissionsInput": {
         "type": "object",
-        "description": "Permissions to grant. Every permission that is left out is set to `false`. Unknown keys are rejected with `400`.",
+        "description": "Permissions to grant. Every permission that is left out is set to `false`: send the whole set (all 19 keys) to avoid taking a permission away by accident. Unknown keys are rejected with `400`.",
         "additionalProperties": false,
         "properties": {
           "canCreateApplication": {
@@ -3832,12 +3975,54 @@
             "type": "boolean",
             "description": "Start, stop and restart databases of the team.",
             "default": false
+          },
+          "canSeeApplicationLogs": {
+            "type": "boolean",
+            "description": "Read the console (logs) of applications of the team.",
+            "default": false
+          },
+          "canSeeApplicationEnv": {
+            "type": "boolean",
+            "description": "See the environment variables of applications of the team.",
+            "default": false
+          },
+          "canEditApplicationEnv": {
+            "type": "boolean",
+            "description": "Change the environment variables of applications of the team.",
+            "default": false
+          },
+          "canManageApplicationDomains": {
+            "type": "boolean",
+            "description": "Change the subdomain and the custom domain of applications of the team.",
+            "default": false
+          },
+          "canDeployApplication": {
+            "type": "boolean",
+            "description": "Deploy applications of the team (GitHub deploys).",
+            "default": false
+          },
+          "canSeeDatabaseCredentials": {
+            "type": "boolean",
+            "description": "See the credentials (user and password) of databases of the team.",
+            "default": false
+          },
+          "canManageMembers": {
+            "type": "boolean",
+            "description": "Invite and remove members, revoke and resend invites and change the permissions of members, like the owner.",
+            "default": false
           }
         },
         "example": {
           "canSeeApplicationFiles": true,
           "canEditApplicationFiles": true,
-          "canChangeStatusApplication": true
+          "canChangeStatusApplication": true,
+          "canSeeApplicationLogs": false,
+          "canSeeApplicationEnv": false,
+          "canEditApplicationEnv": false,
+          "canManageApplicationDomains": false,
+          "canDeployApplication": false,
+          "canSeeDatabaseCredentials": false,
+          "canManageMembers": false
         }
       },
       "TeamUser": {
@@ -3894,6 +4079,14 @@
             "format": "date-time",
             "description": "When the invite expires (2 days after it was created). Expired invites are removed automatically.",
             "example": "2025-01-01T12:00:00.000Z"
+          },
+          "roleId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Role the person receives when accepting the invite, if any.",
+            "example": "000000000000000000000009"
           }
         }
       },
@@ -3934,6 +4127,14 @@
                 },
                 "permissions": {
                   "$ref": "#/components/schemas/TeamPermissions"
+                },
+                "roleId": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Role the member follows, if any. Changing the permissions of a member by hand takes them out of the role.",
+                  "example": "000000000000000000000009"
                 }
               }
             }
@@ -3961,6 +4162,13 @@
             "type": "integer",
             "description": "Internal document version.",
             "example": 0
+          },
+          "roles": {
+            "type": "array",
+            "description": "Roles of the team.",
+            "items": {
+              "$ref": "#/components/schemas/TeamRole"
+            }
           }
         }
       },
@@ -3978,6 +4186,14 @@
           },
           "permissions": {
             "$ref": "#/components/schemas/TeamPermissions"
+          },
+          "roleId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Role the member follows, if any. Changing the permissions of a member by hand takes them out of the role.",
+            "example": "000000000000000000000009"
           }
         }
       },
@@ -4039,6 +4255,13 @@
             "type": "integer",
             "description": "Number of database instances that belong to the team.",
             "example": 0
+          },
+          "roles": {
+            "type": "array",
+            "description": "Roles of the team.",
+            "items": {
+              "$ref": "#/components/schemas/TeamRole"
+            }
           }
         }
       },
@@ -4111,6 +4334,13 @@
             "type": "integer",
             "description": "Internal document version.",
             "example": 0
+          },
+          "roles": {
+            "type": "array",
+            "description": "Roles of the team.",
+            "items": {
+              "$ref": "#/components/schemas/TeamRole"
+            }
           }
         }
       },
@@ -4560,6 +4790,29 @@
             "type": "integer",
             "description": "Internal document version.",
             "example": 0
+          },
+          "buildCommand": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Command that builds the application before it starts, if any.",
+            "example": "npm run build"
+          },
+          "customDomainPending": {
+            "type": "string",
+            "description": "Custom domain waiting for its ownership proof. Only present while there is one.",
+            "example": "app.example.com"
+          },
+          "customDomainTxtName": {
+            "type": "string",
+            "description": "Name of the TXT record to publish to prove you own `customDomainPending`.",
+            "example": "_camposcloud-verify.app.example.com"
+          },
+          "customDomainTxtValue": {
+            "type": "string",
+            "description": "Value of the TXT record to publish.",
+            "example": "camposcloud-verify=3f2a9c0d8e7b6a5f4e3d2c1b0a998877"
           }
         }
       },
@@ -4765,12 +5018,18 @@
           "branch": {
             "type": "string",
             "description": "Branch to deploy."
+          },
+          "buildCommand": {
+            "type": "string",
+            "description": "Command that builds the application, run after the dependencies are installed and before the start command (for example `npm run build`). It is kept apart from `startupCommand`.",
+            "example": "npm run build",
+            "maxLength": 500
           }
         }
       },
       "UpdateApplication": {
         "type": "object",
-        "description": "Only the fields that are sent are changed. Unknown fields (for example `mainFile` or `team`) are rejected with `400`.",
+        "description": "Only the fields that are sent are changed. Unknown fields (for example `team`) are rejected with `400`.",
         "additionalProperties": false,
         "properties": {
           "appName": {
@@ -4829,7 +5088,7 @@
           },
           "assignedCustomDomain": {
             "type": "string",
-            "description": "Custom domain for the application. Only accepted when the application is (or is being) exposed via web. Send an empty string to remove it.",
+            "description": "Custom domain for the application. Only accepted when the application is (or is being) exposed via web, and the domain must use Cloudflare nameservers. The domain is not routed right away: it stays pending (`customDomainPending`) until you publish the TXT record returned in `customDomainTxtName` and `customDomainTxtValue` and call `POST /v1/apps/{appId}/custom-domain/verify`. Send an empty string to remove it.",
             "example": "app.example.com",
             "maxLength": 253
           },
@@ -4839,6 +5098,19 @@
             "items": {
               "$ref": "#/components/schemas/EnvironmentVariableInput"
             }
+          },
+          "buildCommand": {
+            "type": "string",
+            "description": "Command that builds the application, run after the dependencies are installed and before the start command (for example `npm run build`). Send an empty string to remove it. It is kept apart from `startupCommand`.",
+            "example": "npm run build",
+            "maxLength": 500
+          },
+          "mainFile": {
+            "type": "string",
+            "description": "The main file of the application, relative to its root. When the start command was the default of the runtime for the old file (for example `node index.js`), it follows the new file; a start command you wrote stays as it is. Paths with `..` are rejected with `MAIN_FILE_INVALID`.",
+            "example": "src/index.js",
+            "minLength": 1,
+            "maxLength": 300
           }
         }
       },
@@ -5257,6 +5529,25 @@
             "format": "date-time",
             "description": "When the current period ends.",
             "example": "2025-01-01T12:00:00.000Z"
+          }
+        }
+      },
+      "TeamRole": {
+        "type": "object",
+        "description": "A named set of permissions of the team. Teams start with Administrador, Desenvolvedor, Operador and Visualizador; they can be changed in the panel (up to 12 per team).",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "description": "The unique identifier of the role (the `roleId` used when inviting).",
+            "example": "000000000000000000000009"
+          },
+          "name": {
+            "type": "string",
+            "description": "Name of the role.",
+            "example": "Desenvolvedor"
+          },
+          "permissions": {
+            "$ref": "#/components/schemas/TeamPermissions"
           }
         }
       }

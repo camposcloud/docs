@@ -57,6 +57,23 @@ try {
 
 See the [API introduction](/api-reference/introduction#errors) for the meaning of each status.
 
+### The error code
+
+Many API errors also carry a stable `code` (for example `PLAN_MEMORY_LIMIT` or `CUSTOM_DOMAIN_TXT_NOT_FOUND`): compare against it instead of the message. From version 1.2.0, `getApiError` reads it for you, and returns `null` for errors that never reached the API:
+
+```typescript
+import { getApiError } from "@camposcloud/sdk";
+
+try {
+    await api.updateApplication({ appId, appName, memoryMB: 4096, runtimeEnvironment: "nodejs" });
+} catch (error) {
+    const apiError = getApiError(error);
+    if (apiError?.code === "PLAN_MEMORY_LIMIT") {
+        console.error(`Only ${apiError.body.availableMB} MB left on the plan`);
+    }
+}
+```
+
 <Note>
   `downloadFile` asks Axios for binary data, so when it fails `error.response.data` is a `Buffer` containing the JSON of the error. Use `JSON.parse(error.response.data.toString())` to read the message.
 </Note>
@@ -101,7 +118,7 @@ See the [API introduction](/api-reference/introduction#errors) for the meaning o
   </Accordion>
 
   <Accordion title="The bun runtime is not in the types">
-    The API accepts `"nodejs"`, `"bun"` and `"python"`, but `runtimeEnvironment` is typed as `"nodejs" | "python"`. The SDK does not check the value at runtime, so in TypeScript you can pass `"bun" as any`.
+    Before version 1.2.0, `runtimeEnvironment` is typed as `"nodejs" | "python"`, even though the API also accepts `"bun"`. The SDK does not check the value at runtime, so in TypeScript you can pass `"bun" as any`. From 1.2.0 the type includes `"bun"`.
   </Accordion>
 
   <Accordion title="Environment variables: empty values and empty arrays">

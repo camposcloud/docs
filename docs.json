@@ -64,6 +64,7 @@
                   "api-reference/endpoint/v1/applications/appId",
                   "api-reference/endpoint/v1/applications/create",
                   "api-reference/endpoint/v1/applications/update",
+                  "api-reference/endpoint/v1/applications/verifyDomain",
                   "api-reference/endpoint/v1/applications/start",
                   "api-reference/endpoint/v1/applications/stop",
                   "api-reference/endpoint/v1/applications/restart",
